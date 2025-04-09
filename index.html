@@ -84,7 +84,7 @@
 <main>
     <section id="journey">
         <p>And this is my journey around the world:</p>
-        <div id="map-container" style="position: relative; width: 100%; height: 70vh;">
+        <div id="map-container" style="position: relative; width: 100%; height: 70vh; max-height: calc(100vh - 200px);">
             <canvas id="map"></canvas>
             <div id="tooltip" style="position: absolute; display: none; background: #fff"></div>
         </div>
@@ -151,6 +151,11 @@
       return minRadius + ((currentDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
     }
 
+    // Check if device is mobile
+    function isMobileDevice() {
+      return window.innerWidth <= 768;
+    }
+
     // Setup canvas
     const container = document.getElementById('map-container');
     const canvas = document.getElementById('map');
@@ -165,16 +170,31 @@
       const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
       const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
 
+      // Use a larger scale (more zoomed in) for mobile devices
+      const scaleFactor = isMobileDevice() ? 3.5 : 6.5;
+
       // Create a projection that shows the whole world
       // but is centered on your journey's center point
       return d3.geoMercator()
         .center([centerLon, centerLat])
-        .scale(width / 6.5) // Lower scale to show more of the world
+        .scale(width / scaleFactor) // Higher scale (lower divisor) for mobile devices
         .translate([width / 2, height / 2]);
     }
 
     // Set canvas dimensions
     function resizeCanvas() {
+      // Adjust container height to ensure it fits within the viewport
+      const headerHeight = document.querySelector('header').offsetHeight;
+      const paragraphHeight = document.querySelector('#journey p').offsetHeight;
+      const footerHeight = document.querySelector('footer').offsetHeight;
+      const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - 40; // 40px for margins
+
+      if (isMobileDevice()) {
+        container.style.height = `${Math.min(availableHeight, window.innerHeight * 0.7)}px`;
+      } else {
+        container.style.height = '70vh';
+      }
+
       const devicePixelRatio = window.devicePixelRatio || 1;
       canvas.width = container.clientWidth * devicePixelRatio;
       canvas.height = container.clientHeight * devicePixelRatio;
