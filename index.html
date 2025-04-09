@@ -77,230 +77,228 @@
     </script>
 </head>
 <body>
-    <header>
-        <h1>Hi! I'm Ivan 👋</h1>
-    </header>
+<header>
+    <h1>Hi! I'm Ivan 👋</h1>
+</header>
 
-    <main>
-        <section id="journey">
-            <p>And this is my journey around the world</p>
-            <div id="map-container" style="position: relative; width: 100%; height: 70vh;">
-                <canvas id="map"></canvas>
-                <div id="tooltip" style="position: absolute; display: none; background: #fff"></div>
-            </div>
-        </section>
-    </main>
+<main>
+    <section id="journey">
+        <p>And this is my journey around the world:</p>
+        <div id="map-container" style="position: relative; width: 100%; height: 70vh;">
+            <canvas id="map"></canvas>
+            <div id="tooltip" style="position: absolute; display: none; background: #fff"></div>
+        </div>
+    </section>
+</main>
 
-    <footer>
-        <p>Timeless connection</p>
-        <ul>
-            <li><a href="https://www.linkedin.com/in/ivanseredkin" target="_blank">LinkedIn</a></li>
-            <li><a href="https://github.com/siropkin" target="_blank">GitHub</a></li>
-            <li><a id="email" href="#"></a></li>
-        </ul>
-    </footer>
+<footer>
+    <p>My digital coordinates:</p>
+    <ul>
+        <li><a href="https://www.linkedin.com/in/ivanseredkin" target="_blank">LinkedIn</a></li>
+        <li><a href="https://github.com/siropkin" target="_blank">GitHub</a></li>
+        <li><a id="email" href="#"></a></li>
+    </ul>
+</footer>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        const emailUser = 'ivan.seredkin';
-        const emailDomain = 'gmail.com';
-        const emailAddress = `${emailUser}@${emailDomain}`;
-        const emailLink = document.getElementById('email');
-        emailLink.href = `mailto:${emailAddress}`;
-        emailLink.textContent = 'Email';
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const emailUser = 'ivan.seredkin';
+    const emailDomain = 'gmail.com';
+    const emailAddress = `${emailUser}@${emailDomain}`;
+    const emailLink = document.getElementById('email');
+    emailLink.href = `mailto:${emailAddress}`;
+    emailLink.textContent = 'Email';
+  });
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    console.log("Hello, World! 🌍");
+
+    // Format date function
+    function formatDate(date) {
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
       });
-    </script>
+    }
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        console.log("Hello, World! 🌍");
+    // Calculate duration in days
+    function getDurationInDays(startDate, endDate) {
+      const end = endDate instanceof Date ? endDate : new Date();
+      return Math.ceil(Math.abs(end - startDate) / (1000 * 60 * 60 * 24));
+    }
 
-        // Format date function
-        function formatDate(date) {
-          return date.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short',
-          });
-        }
+    // Format duration
+    function formatDuration(startDate, endDate) {
+      const duration = getDurationInDays(startDate, endDate);
+      const years = Math.floor(duration / 365);
+      const months = Math.floor((duration % 365) / 30);
+      return `${years > 0 ? years + ' year' + (years > 1 ? 's ' : ' ') : ''}${months > 0 ? months + ' month' + (months > 1 ? 's' : '') : ''}`;
+    }
 
-        // Calculate duration in days
-        function getDurationInDays(startDate, endDate) {
-          const end = endDate instanceof Date ? endDate : new Date();
-          return Math.ceil(Math.abs(end - startDate) / (1000 * 60 * 60 * 24));
-        }
+    // Calculate radius based on all data and scale of all data
+    function getRadius(startDate, endDate) {
+      const durations = window.locations.map(location =>
+        getDurationInDays(location.startDate, location.endDate)
+      );
+      const minDuration = Math.min(...durations);
+      const maxDuration = Math.max(...durations);
+      const currentDuration = getDurationInDays(startDate, endDate);
 
-        // Format duration
-        function formatDuration(startDate, endDate) {
-          const duration = getDurationInDays(startDate, endDate);
-          const years = Math.floor(duration / 365);
-          const months = Math.floor((duration % 365) / 30);
-          return `${years > 0 ? years + ' year' + (years > 1 ? 's ' : ' ') : ''}${months > 0 ? months + ' month' + (months > 1 ? 's' : '') : ''}`;
-        }
+      const minRadius = 6;
+      const maxRadius = 20;
+      return minRadius + ((currentDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+    }
 
-        // Calculate radius based on all data and scale of all data
-        function getRadius(startDate, endDate) {
-          const durations = window.locations.map(location =>
-            getDurationInDays(location.startDate, location.endDate)
-          );
-          const minDuration = Math.min(...durations);
-          const maxDuration = Math.max(...durations);
-          const currentDuration = getDurationInDays(startDate, endDate);
+    // Setup canvas
+    const container = document.getElementById('map-container');
+    const canvas = document.getElementById('map');
+    const tooltip = document.getElementById('tooltip');
 
-          const minRadius = 6;
-          const maxRadius = 20;
-          return minRadius + ((currentDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
-        }
+    // Create projection for the whole world
+    function createProjection(width, height) {
+      // Calculate the center of your journey points
+      const longitudes = window.locations.map(loc => loc.coordinates[0]);
+      const latitudes = window.locations.map(loc => loc.coordinates[1]);
 
-        // Setup canvas
-        const container = document.getElementById('map-container');
-        const canvas = document.getElementById('map');
-        const tooltip = document.getElementById('tooltip');
+      const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
+      const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
 
-        // Create projection for the whole world
-        function createProjection(width, height) {
-          // Calculate the center of your journey points
-          const longitudes = window.locations.map(loc => loc.coordinates[0]);
-          const latitudes = window.locations.map(loc => loc.coordinates[1]);
+      // Create a projection that shows the whole world
+      // but is centered on your journey's center point
+      return d3.geoMercator()
+        .center([centerLon, centerLat])
+        .scale(width / 6.5) // Lower scale to show more of the world
+        .translate([width / 2, height / 2]);
+    }
 
-          const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
-          const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+    // Set canvas dimensions
+    function resizeCanvas() {
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      canvas.width = container.clientWidth * devicePixelRatio;
+      canvas.height = container.clientHeight * devicePixelRatio;
+      canvas.style.width = container.clientWidth + 'px';
+      canvas.style.height = container.clientHeight + 'px';
 
-          // Create a projection that shows the whole world
-          // but is centered on your journey's center point
-          const projection = d3.geoMercator()
-            .center([centerLon, centerLat])
-            .scale(width / 6.5) // Lower scale to show more of the world
-            .translate([width / 2, height / 2]);
+      // Redraw map when resized
+      drawMap();
+    }
 
-          return projection;
-        }
+    // Initial resize and add event listener
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
 
-        // Set canvas dimensions
-        function resizeCanvas() {
-          const devicePixelRatio = window.devicePixelRatio || 1;
-          canvas.width = container.clientWidth * devicePixelRatio;
-          canvas.height = container.clientHeight * devicePixelRatio;
-          canvas.style.width = container.clientWidth + 'px';
-          canvas.style.height = container.clientHeight + 'px';
+    // Draw map function
+    function drawMap() {
+      const context = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
 
-          // Redraw map when resized
-          drawMap();
-        }
+      // Clear canvas
+      context.clearRect(0, 0, width, height);
 
-        // Initial resize and add event listener
-        resizeCanvas();
-        window.addEventListener('resize', resizeCanvas);
+      // Create projection for the whole world
+      const projection = createProjection(width, height);
 
-        // Draw map function
-        function drawMap() {
-          const context = canvas.getContext('2d');
-          const width = canvas.width;
-          const height = canvas.height;
+      const path = d3.geoPath()
+        .projection(projection)
+        .context(context);
 
-          // Clear canvas
-          context.clearRect(0, 0, width, height);
+      // Load world map data
+      d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+        .then(function (world) {
+          // Draw countries
+          context.beginPath();
+          path(topojson.feature(world, world.objects.countries));
+          context.fillStyle = '#fff';
+          context.fill();
 
-          // Create projection for the whole world
-          const projection = createProjection(width, height);
+          // Draw country borders
+          context.beginPath();
+          path(topojson.mesh(world, world.objects.countries));
+          context.strokeStyle = '#000';
+          context.lineWidth = 0.5;
+          context.stroke();
 
-          const path = d3.geoPath()
-            .projection(projection)
-            .context(context);
-
-          // Load world map data
-          d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-            .then(function(world) {
-              // Draw countries
-              context.beginPath();
-              path(topojson.feature(world, world.objects.countries));
-              context.fillStyle = '#fff';
-              context.fill();
-
-              // Draw country borders
-              context.beginPath();
-              path(topojson.mesh(world, world.objects.countries));
-              context.strokeStyle = '#000';
-              context.lineWidth = 0.5;
-              context.stroke();
-
-              // Draw journey points
-              window.locations.forEach(function(location) {
-                const [x, y] = projection(location.coordinates);
-                const radius = getRadius(location.startDate, location.endDate);
-
-                // Draw point
-                context.beginPath();
-                context.arc(x, y, radius, 0, 2 * Math.PI);
-                context.fillStyle = '#000';
-                context.fill();
-                context.strokeStyle = '#fff';
-                context.lineWidth = 1;
-                context.stroke();
-              });
-            });
-        }
-
-        // Handle mouse events for tooltip
-        canvas.addEventListener('mousemove', function(event) {
-          const rect = canvas.getBoundingClientRect();
-          const x = event.clientX - rect.left;
-          const y = event.clientY - rect.top;
-
-          // Create projection for the whole world
-          const projection = createProjection(canvas.width, canvas.height);
-
-          // Check if mouse is over any point
-          let hoveredLocation = null;
-
-          window.locations.forEach(function(location) {
-            const [pointX, pointY] = projection(location.coordinates);
+          // Draw journey points
+          window.locations.forEach(function (location) {
+            const [x, y] = projection(location.coordinates);
             const radius = getRadius(location.startDate, location.endDate);
 
-            const distance = Math.sqrt(Math.pow(x * window.devicePixelRatio - pointX, 2) +
-              Math.pow(y * window.devicePixelRatio - pointY, 2));
-
-            if (distance <= radius) {
-              hoveredLocation = location;
-            }
+            // Draw point
+            context.beginPath();
+            context.arc(x, y, radius, 0, 2 * Math.PI);
+            context.fillStyle = '#000';
+            context.fill();
+            context.strokeStyle = '#fff';
+            context.lineWidth = 1;
+            context.stroke();
           });
+        });
+    }
 
-          // Show or hide tooltip
-          if (hoveredLocation) {
-            const startDateStr = formatDate(hoveredLocation.startDate);
-            const endDateStr = hoveredLocation.endDate instanceof Date ? formatDate(hoveredLocation.endDate) : 'Present';
-            const durationStr = formatDuration(hoveredLocation.startDate, hoveredLocation.endDate);
+    // Handle mouse events for tooltip
+    canvas.addEventListener('mousemove', function (event) {
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
 
-            tooltip.innerHTML = `
+      // Create projection for the whole world
+      const projection = createProjection(canvas.width, canvas.height);
+
+      // Check if mouse is over any point
+      let hoveredLocation = null;
+
+      window.locations.forEach(function (location) {
+        const [pointX, pointY] = projection(location.coordinates);
+        const radius = getRadius(location.startDate, location.endDate);
+
+        const distance = Math.sqrt(Math.pow(x * window.devicePixelRatio - pointX, 2) +
+          Math.pow(y * window.devicePixelRatio - pointY, 2));
+
+        if (distance <= radius) {
+          hoveredLocation = location;
+        }
+      });
+
+      // Show or hide tooltip
+      if (hoveredLocation) {
+        const startDateStr = formatDate(hoveredLocation.startDate);
+        const endDateStr = hoveredLocation.endDate instanceof Date ? formatDate(hoveredLocation.endDate) : 'Present';
+        const durationStr = formatDuration(hoveredLocation.startDate, hoveredLocation.endDate);
+
+        tooltip.innerHTML = `
                 <strong>${hoveredLocation.city}, ${hoveredLocation.country}</strong><br>
                 <small>${startDateStr} - ${endDateStr}</small><br>
                 <small>${durationStr}</small><br>
                 <small>${hoveredLocation.description}</small><br>
             `;
 
-            tooltip.style.display = 'block';
-            tooltip.style.left = (event.clientX - rect.left + 10) + 'px';
-            tooltip.style.top = (event.clientY - rect.top + 10) + 'px';
+        tooltip.style.display = 'block';
+        tooltip.style.left = (event.clientX - rect.left + 10) + 'px';
+        tooltip.style.top = (event.clientY - rect.top + 10) + 'px';
 
-            // Adjust tooltip position if it goes off screen
-            const tooltipRect = tooltip.getBoundingClientRect();
-            if (tooltipRect.right > window.innerWidth) {
-              tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 10) + 'px';
-            }
-            if (tooltipRect.bottom > window.innerHeight) {
-              tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 10) + 'px';
-            }
-          } else {
-            tooltip.style.display = 'none';
-          }
-        });
+        // Adjust tooltip position if it goes off screen
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (tooltipRect.right > window.innerWidth) {
+          tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 10) + 'px';
+        }
+        if (tooltipRect.bottom > window.innerHeight) {
+          tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 10) + 'px';
+        }
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
 
-        canvas.addEventListener('mouseleave', function() {
-          tooltip.style.display = 'none';
-        });
+    canvas.addEventListener('mouseleave', function () {
+      tooltip.style.display = 'none';
+    });
 
-        // Initial draw
-        drawMap();
-      });
-    </script>
+    // Initial draw
+    drawMap();
+  });
+</script>
 </body>
 </html>
