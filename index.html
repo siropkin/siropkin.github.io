@@ -391,6 +391,9 @@
       window.addEventListener('resize', () => {
         setTimeout(() => resizeCanvas(), 10)
       });
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => resizeCanvas(), 10)
+      });
       canvas.addEventListener('mousemove', handleMouseMove);
       canvas.addEventListener('mouseleave', hideTooltip);
       canvas.addEventListener('touchstart', handleTouch);
