@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ivan Seredkin</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <script>
+        // Data
+        window.locations = [
+            { 
+                name: "Chaykovsky, Russia", 
+                coordinates: [54.1277, 56.7661], 
+                startDate: new Date(1985, 8, 19), 
+                endDate: new Date(2005, 9, 1),
+                description: "The beginning of my journey"
+            },
+            { 
+                name: "Izhevsk, Russia", 
+                coordinates: [53.2324, 56.8619], 
+                startDate: new Date(2005, 9, 1), 
+                endDate: new Date(2014, 3, 1),
+                description: "Moved to a new city, started my career, and got my first job"
+            },
+            { 
+                name: "Moscow, Russia", 
+                coordinates: [37.6173, 55.7558], 
+                startDate: new Date(2014, 3, 1), 
+                endDate: new Date(2020, 4, 1),
+                description: "Worked hard, lived fast, and got Ilia"
+            },
+            { 
+                name: "Saint Petersburg, Russia", 
+                coordinates: [30.3609, 59.9311], 
+                startDate: new Date(2020, 4, 1), 
+                endDate: new Date(2022, 2, 4),
+                description: "Pivot to freelancing, worked with amazing people, and got a lot of experience"
+            },
+            { 
+                name: "Antalya, Turkey", 
+                coordinates: [30.7133, 36.8969], 
+                startDate: new Date(2022, 2, 4), 
+                endDate: new Date(2023, 10, 23),
+                description: "New life, new country, new friends, and new experience"
+            },
+            { 
+                name: "Annapolis, Maryland, US", 
+                coordinates: [-76.4896, 38.9764], 
+                startDate: new Date(2023, 10, 23), 
+                endDate: new Date(),
+                description: "My new adventure in the US, where I am now"
+            }
+        ];
+        window.activeLocationIndex = window.locations.length - 1;   
+    </script>
+</head>
+<body>
+    <h1>Hi! I'm Ivan 👋</h1>
+    
+    <p>And this is my journey around the world 🌍</p>
+
+    <div id="timeline-container" style="width: 100%; height: 80px; cursor: pointer;">
+        <canvas id="timeline"></canvas>
+    </div>
+
+    <script>
+        // Timeline
+        const timelineMargin = { top: 0, right: 0, bottom: 0, left: 0 };
+        const timelineLabelHeight = 20;
+        const timelineNoteHeight = 20;
+        let timelineContainer, timelineCanvas, timelineCtx;
+        
+        // Initialize the timeline when the DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            timelineContainer = document.getElementById('timeline-container');
+            timelineCanvas = document.getElementById('timeline');
+            timelineCtx = timelineCanvas.getContext('2d');
+            
+            window.addEventListener('resize', resizeCanvas);
+            timelineContainer.addEventListener('click', handleTimelineClick);
+
+            resizeCanvas();
+        });
+        
+        // Set canvas size to match container
+        function resizeCanvas() {
+            if (!timelineCanvas || !timelineContainer) { 
+                return;
+            }
+            
+            timelineCanvas.width = timelineContainer.clientWidth;
+            timelineCanvas.height = timelineContainer.clientHeight;
+            drawTimeline();
+        }
+        
+        // Create time scale for the timeline
+        function createTimeScale() {
+            const minDate = new Date(window.locations[0].startDate);
+            minDate.setFullYear(minDate.getFullYear() - 1.5);
+            const maxDate = new Date();
+            return d3.scaleTime()
+                .domain([minDate, maxDate])
+                .range([timelineMargin.left, timelineCanvas.width - timelineMargin.right]);
+        }
+        
+        // Draw the timeline
+        function drawTimeline() {
+            if (!timelineCtx || !timelineCanvas) {
+                return;
+            }
+
+            // Clear canvas
+            timelineCtx.clearRect(0, 0, timelineCanvas.width, timelineCanvas.height);
+            
+            // Draw timeline base line
+            timelineCtx.beginPath();
+            timelineCtx.moveTo(timelineMargin.left, timelineCanvas.height / 2);
+            timelineCtx.lineTo(timelineCanvas.width - timelineMargin.right, timelineCanvas.height / 2);
+            timelineCtx.strokeStyle = 'black';
+            timelineCtx.lineWidth = 1;
+            timelineCtx.stroke();
+            
+            // Draw timeline sections
+            const timeScale = createTimeScale();
+            const timelineInnerHeight = timelineCanvas.height - timelineLabelHeight - timelineNoteHeight;
+            window.locations.forEach((location, index) => {
+                const startX = timeScale(location.startDate);
+                const endX = timeScale(location.endDate);
+                const width = endX - startX;
+
+                // Style based on active state
+                if (index === window.activeLocationIndex) {
+                    timelineCtx.rect(startX, timelineCanvas.height / 2 - timelineInnerHeight / 2, width, timelineInnerHeight);
+                    timelineCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Darker fill for better visibility
+                    timelineCtx.fill();
+                }
+                
+                // Draw start point marker
+                const markerRadius = index === window.activeLocationIndex || index === window.activeLocationIndex + 1 ? 4 : 2;
+                timelineCtx.beginPath();
+                timelineCtx.arc(startX, timelineCanvas.height / 2, 2    , 0, Math.PI * 2);
+                timelineCtx.fillStyle = 'black';
+                timelineCtx.fill();
+                
+                // Draw start year and location name at the bottom (only for the first location)
+                const label = location.description;
+                timelineCtx.font = '12px Arial';
+                timelineCtx.fillStyle = 'black';
+                timelineCtx.fillText(location.startDate.getFullYear(), startX - 1, timelineCanvas.height / 2 + timelineInnerHeight / 2 + 15);
+                if (index === window.activeLocationIndex) {
+                    const textWidth = timelineCtx.measureText(label).width;
+                    const textX = startX + textWidth > timelineCanvas.width - timelineMargin.right ? endX - textWidth : startX;
+                    const textY = timelineCanvas.height / 2 - timelineInnerHeight / 2 - 5;
+                    timelineCtx.fillText(label, textX, textY);
+                }
+            });
+        }
+        
+        // Handle click events
+        function handleTimelineClick(event) {
+            if (!timelineCanvas) { 
+                return;
+            }
+            
+            const rect = timelineCanvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            
+            const locations = window.locations;
+            const timeScale = createTimeScale();
+            
+            // Check which section was clicked
+            for (let i = 0; i < window.locations.length; i++) {
+                const location = locations[i];
+                const startX = timeScale(location.startDate);
+                const endX = timeScale(location.endDate);
+                
+                if (x >= startX && x <= endX) {
+                    window.activeLocationIndex = i;
+                    drawTimeline();
+                    break;
+                }
+            }
+        }
+    </script>
+</body>
+</html>
