@@ -216,7 +216,7 @@
 
       // Dynamically calculate available height
       const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - buffer;
-      container.style.height = `${availableHeight}px`;
+      container.style.height = `${Math.max(100, availableHeight)}px`;
 
       const dpr = window.devicePixelRatio || 1;
       canvas.width = container.clientWidth * dpr;
@@ -392,7 +392,7 @@
         setTimeout(() => resizeCanvas(), 10)
       });
       window.addEventListener('orientationchange', () => {
-        setTimeout(() => resizeCanvas(), 150)
+        setTimeout(() => resizeCanvas(), 100)
       });
       canvas.addEventListener('mousemove', handleMouseMove);
       canvas.addEventListener('mouseleave', hideTooltip);
