@@ -232,14 +232,14 @@
     };
 
     // Check if point is under cursor/touch
-    const findLocationAtPoint = (x, y) => {
+    const findLocationAtPoint = (x, y, extraRadius = 0) => {
       const dpr = window.devicePixelRatio || 1;
       const canvasX = x * dpr;
       const canvasY = y * dpr;
 
       return [...locationData].reverse().find(location => {
         const [pointX, pointY] = projection(location.coordinates);
-        const radius = calculateRadius(location.startDate, location.endDate);
+        const radius = calculateRadius(location.startDate, location.endDate) + extraRadius;
 
         const distance = Math.sqrt(
           Math.pow(canvasX - pointX, 2) +
@@ -373,7 +373,7 @@
         const x = touch.clientX - rect.left;
         const y = touch.clientY - rect.top;
 
-        const location = findLocationAtPoint(x, y);
+        const location = findLocationAtPoint(x, y, isMobile() ? 15 : 0);
 
         if (location) {
           showTooltip(location, touch.clientX, touch.clientY);
