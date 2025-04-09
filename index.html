@@ -84,7 +84,7 @@
 <main>
     <section id="journey">
         <p>And this is my journey around the world:</p>
-        <div id="map-container" style="position: relative; width: 100%; height: 70vh; max-height: calc(100vh - 200px);">
+        <div id="map-container" style="position: relative; width: 100%;">
             <canvas id="map"></canvas>
             <div id="tooltip" style="position: absolute; display: none; background: #fff"></div>
         </div>
@@ -183,17 +183,19 @@
 
     // Set canvas dimensions
     function resizeCanvas() {
-      // Adjust container height to ensure it fits within the viewport
+      // Calculate all non-map elements height
       const headerHeight = document.querySelector('header').offsetHeight;
       const paragraphHeight = document.querySelector('#journey p').offsetHeight;
       const footerHeight = document.querySelector('footer').offsetHeight;
-      const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - 40; // 40px for margins
 
-      if (isMobileDevice()) {
-        container.style.height = `${Math.min(availableHeight, window.innerHeight * 0.7)}px`;
-      } else {
-        container.style.height = '70vh';
-      }
+      // Add some buffer for margins and padding
+      const buffer = 100;
+
+      // Calculate available height
+      const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - buffer;
+
+      // Apply calculated height for all devices
+      container.style.height = `${availableHeight}px`;
 
       const devicePixelRatio = window.devicePixelRatio || 1;
       canvas.width = container.clientWidth * devicePixelRatio;
