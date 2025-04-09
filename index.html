@@ -3,186 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Ivan Seredkin's journey around the world">
     <title>Ivan Seredkin</title>
+
+    <!-- Social Media Preview Meta Tags -->
+    <meta property="og:title" content="Ivan Seredkin's Journey">
+    <meta property="og:description" content="Explore Ivan's journey around the world">
+    <meta property="og:image" content="https://siropkin.github.io/preview.png">
+    <meta property="og:url" content="https://siropkin.github.io/">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Ivan Seredkin's Journey">
+    <meta name="twitter:description" content="Explore Ivan's journey around the world">
+    <meta name="twitter:image" content="https://siropkin.github.io/preview.png">
+
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://d3js.org/topojson.v3.min.js"></script>
     <script>
-        // Data
-        window.locations = [
-            { 
-                name: "Chaykovsky, Russia", 
-                coordinates: [54.1277, 56.7661], 
-                startDate: new Date(1985, 8, 19), 
-                endDate: new Date(2005, 9, 1),
-                description: "The beginning of my journey"
-            },
-            { 
-                name: "Izhevsk, Russia", 
-                coordinates: [53.2324, 56.8619], 
-                startDate: new Date(2005, 9, 1), 
-                endDate: new Date(2014, 3, 1),
-                description: "Moved to a new city, started my career, and got my first job"
-            },
-            { 
-                name: "Moscow, Russia", 
-                coordinates: [37.6173, 55.7558], 
-                startDate: new Date(2014, 3, 1), 
-                endDate: new Date(2020, 4, 1),
-                description: "Worked hard, lived fast, and got Ilia"
-            },
-            { 
-                name: "Saint Petersburg, Russia", 
-                coordinates: [30.3609, 59.9311], 
-                startDate: new Date(2020, 4, 1), 
-                endDate: new Date(2022, 2, 4),
-                description: "Pivot to freelancing, worked with amazing people, and got a lot of experience"
-            },
-            { 
-                name: "Antalya, Turkey", 
-                coordinates: [30.7133, 36.8969], 
-                startDate: new Date(2022, 2, 4), 
-                endDate: new Date(2023, 10, 23),
-                description: "New life, new country, new friends, and new experience"
-            },
-            { 
-                name: "Annapolis, Maryland, US", 
-                coordinates: [-76.4896, 38.9764], 
-                startDate: new Date(2023, 10, 23), 
-                endDate: new Date(),
-                description: "My new adventure in the US, where I am now"
-            }
-        ];
-        window.activeLocationIndex = window.locations.length - 1;   
+      // Data
+      window.locations = [
+        {
+          country: "Russia",
+          city: "Chaykovsky",
+          coordinates: [54.1277, 56.7661],
+          startDate: new Date(1985, 8, 19),
+          endDate: new Date(2005, 9, 1),
+          description: "Born to code"
+        },
+        {
+          country: "Russia",
+          city: "Izhevsk",
+          coordinates: [53.2324, 56.8619],
+          startDate: new Date(2005, 9, 1),
+          endDate: new Date(2014, 3, 1),
+          description: "Pelmeni & textbooks"
+        },
+        {
+          country: "Russia",
+          city: "Moscow",
+          coordinates: [37.6173, 55.7558],
+          startDate: new Date(2014, 3, 1),
+          endDate: new Date(2020, 4, 1),
+          description: "Subway warrior"
+        },
+        {
+          country: "Russia",
+          city: "Saint Petersburg",
+          coordinates: [30.3609, 59.9311],
+          startDate: new Date(2020, 4, 1),
+          endDate: new Date(2022, 2, 4),
+          description: "White nights, cold bytes"
+        },
+        {
+          country: "Turkey",
+          city: "Antalya",
+          coordinates: [30.7133, 36.8969],
+          startDate: new Date(2022, 2, 4),
+          endDate: new Date(2023, 10, 23),
+          description: "Beach office vibes"
+        },
+        {
+          country: "USA",
+          city: "Annapolis",
+          coordinates: [-76.4896, 38.9764],
+          startDate: new Date(2023, 10, 23),
+          endDate: null,
+          description: "American debugger"
+        }
+      ];
     </script>
 </head>
 <body>
-    <h1>Hi! I'm Ivan 👋</h1>
-    
-    <p>And this is my journey around the world 🌍</p>
+    <header>
+        <h1>Hi! I'm Ivan 👋</h1>
+    </header>
 
-    <div id="timeline-container" style="width: 100%; height: 80px; cursor: pointer;">
-        <canvas id="timeline"></canvas>
-    </div>
+    <main>
+        <section id="journey">
+            <p>And this is my journey around the world</p>
+            <div id="map-container" style="position: relative; width: 100%; height: 70vh;">
+                <canvas id="map"></canvas>
+                <div id="tooltip" style="position: absolute; display: none; background: #fff"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Timeless connection</p>
+        <ul>
+            <li><a href="https://www.linkedin.com/in/ivanseredkin" target="_blank">LinkedIn</a></li>
+            <li><a href="https://github.com/siropkin" target="_blank">GitHub</a></li>
+            <li><a id="email" href="#"></a></li>
+        </ul>
+    </footer>
 
     <script>
-        // Timeline
-        const timelineMargin = { top: 0, right: 0, bottom: 0, left: 0 };
-        const timelineLabelHeight = 20;
-        const timelineNoteHeight = 20;
-        let timelineContainer, timelineCanvas, timelineCtx;
-        
-        // Initialize the timeline when the DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            timelineContainer = document.getElementById('timeline-container');
-            timelineCanvas = document.getElementById('timeline');
-            timelineCtx = timelineCanvas.getContext('2d');
-            
-            window.addEventListener('resize', resizeCanvas);
-            timelineContainer.addEventListener('click', handleTimelineClick);
+      document.addEventListener('DOMContentLoaded', function() {
+        const emailUser = 'ivan.seredkin';
+        const emailDomain = 'gmail.com';
+        const emailAddress = `${emailUser}@${emailDomain}`;
+        const emailLink = document.getElementById('email');
+        emailLink.href = `mailto:${emailAddress}`;
+        emailLink.textContent = 'Email';
+      });
+    </script>
 
-            resizeCanvas();
-        });
-        
-        // Set canvas size to match container
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        console.log("Hello, World! 🌍");
+
+        // Format date function
+        function formatDate(date) {
+          return date.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+          });
+        }
+
+        // Calculate duration in days
+        function getDurationInDays(startDate, endDate) {
+          const end = endDate instanceof Date ? endDate : new Date();
+          return Math.ceil(Math.abs(end - startDate) / (1000 * 60 * 60 * 24));
+        }
+
+        // Format duration
+        function formatDuration(startDate, endDate) {
+          const duration = getDurationInDays(startDate, endDate);
+          const years = Math.floor(duration / 365);
+          const months = Math.floor((duration % 365) / 30);
+          return `${years > 0 ? years + ' year' + (years > 1 ? 's ' : ' ') : ''}${months > 0 ? months + ' month' + (months > 1 ? 's' : '') : ''}`;
+        }
+
+        // Calculate radius based on all data and scale of all data
+        function getRadius(startDate, endDate) {
+          const durations = window.locations.map(location =>
+            getDurationInDays(location.startDate, location.endDate)
+          );
+          const minDuration = Math.min(...durations);
+          const maxDuration = Math.max(...durations);
+          const currentDuration = getDurationInDays(startDate, endDate);
+
+          const minRadius = 6;
+          const maxRadius = 20;
+          return minRadius + ((currentDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+        }
+
+        // Setup canvas
+        const container = document.getElementById('map-container');
+        const canvas = document.getElementById('map');
+        const tooltip = document.getElementById('tooltip');
+
+        // Create projection for the whole world
+        function createProjection(width, height) {
+          // Calculate the center of your journey points
+          const longitudes = window.locations.map(loc => loc.coordinates[0]);
+          const latitudes = window.locations.map(loc => loc.coordinates[1]);
+
+          const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
+          const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
+
+          // Create a projection that shows the whole world
+          // but is centered on your journey's center point
+          const projection = d3.geoMercator()
+            .center([centerLon, centerLat])
+            .scale(width / 6.5) // Lower scale to show more of the world
+            .translate([width / 2, height / 2]);
+
+          return projection;
+        }
+
+        // Set canvas dimensions
         function resizeCanvas() {
-            if (!timelineCanvas || !timelineContainer) { 
-                return;
-            }
-            
-            timelineCanvas.width = timelineContainer.clientWidth;
-            timelineCanvas.height = timelineContainer.clientHeight;
-            drawTimeline();
-        }
-        
-        // Create time scale for the timeline
-        function createTimeScale() {
-            const minDate = new Date(window.locations[0].startDate);
-            minDate.setFullYear(minDate.getFullYear() - 1.5);
-            const maxDate = new Date();
-            return d3.scaleTime()
-                .domain([minDate, maxDate])
-                .range([timelineMargin.left, timelineCanvas.width - timelineMargin.right]);
-        }
-        
-        // Draw the timeline
-        function drawTimeline() {
-            if (!timelineCtx || !timelineCanvas) {
-                return;
-            }
+          const devicePixelRatio = window.devicePixelRatio || 1;
+          canvas.width = container.clientWidth * devicePixelRatio;
+          canvas.height = container.clientHeight * devicePixelRatio;
+          canvas.style.width = container.clientWidth + 'px';
+          canvas.style.height = container.clientHeight + 'px';
 
-            // Clear canvas
-            timelineCtx.clearRect(0, 0, timelineCanvas.width, timelineCanvas.height);
-            
-            // Draw timeline base line
-            timelineCtx.beginPath();
-            timelineCtx.moveTo(timelineMargin.left, timelineCanvas.height / 2);
-            timelineCtx.lineTo(timelineCanvas.width - timelineMargin.right, timelineCanvas.height / 2);
-            timelineCtx.strokeStyle = 'black';
-            timelineCtx.lineWidth = 1;
-            timelineCtx.stroke();
-            
-            // Draw timeline sections
-            const timeScale = createTimeScale();
-            const timelineInnerHeight = timelineCanvas.height - timelineLabelHeight - timelineNoteHeight;
-            window.locations.forEach((location, index) => {
-                const startX = timeScale(location.startDate);
-                const endX = timeScale(location.endDate);
-                const width = endX - startX;
+          // Redraw map when resized
+          drawMap();
+        }
 
-                // Style based on active state
-                if (index === window.activeLocationIndex) {
-                    timelineCtx.rect(startX, timelineCanvas.height / 2 - timelineInnerHeight / 2, width, timelineInnerHeight);
-                    timelineCtx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // Darker fill for better visibility
-                    timelineCtx.fill();
-                }
-                
-                // Draw start point marker
-                const markerRadius = index === window.activeLocationIndex || index === window.activeLocationIndex + 1 ? 4 : 2;
-                timelineCtx.beginPath();
-                timelineCtx.arc(startX, timelineCanvas.height / 2, 2    , 0, Math.PI * 2);
-                timelineCtx.fillStyle = 'black';
-                timelineCtx.fill();
-                
-                // Draw start year and location name at the bottom (only for the first location)
-                const label = location.description;
-                timelineCtx.font = '12px Arial';
-                timelineCtx.fillStyle = 'black';
-                timelineCtx.fillText(location.startDate.getFullYear(), startX - 1, timelineCanvas.height / 2 + timelineInnerHeight / 2 + 15);
-                if (index === window.activeLocationIndex) {
-                    const textWidth = timelineCtx.measureText(label).width;
-                    const textX = startX + textWidth > timelineCanvas.width - timelineMargin.right ? endX - textWidth : startX;
-                    const textY = timelineCanvas.height / 2 - timelineInnerHeight / 2 - 5;
-                    timelineCtx.fillText(label, textX, textY);
-                }
+        // Initial resize and add event listener
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        // Draw map function
+        function drawMap() {
+          const context = canvas.getContext('2d');
+          const width = canvas.width;
+          const height = canvas.height;
+
+          // Clear canvas
+          context.clearRect(0, 0, width, height);
+
+          // Create projection for the whole world
+          const projection = createProjection(width, height);
+
+          const path = d3.geoPath()
+            .projection(projection)
+            .context(context);
+
+          // Load world map data
+          d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+            .then(function(world) {
+              // Draw countries
+              context.beginPath();
+              path(topojson.feature(world, world.objects.countries));
+              context.fillStyle = '#fff';
+              context.fill();
+
+              // Draw country borders
+              context.beginPath();
+              path(topojson.mesh(world, world.objects.countries));
+              context.strokeStyle = '#000';
+              context.lineWidth = 0.5;
+              context.stroke();
+
+              // Draw journey points
+              window.locations.forEach(function(location) {
+                const [x, y] = projection(location.coordinates);
+                const radius = getRadius(location.startDate, location.endDate);
+
+                // Draw point
+                context.beginPath();
+                context.arc(x, y, radius, 0, 2 * Math.PI);
+                context.fillStyle = '#000';
+                context.fill();
+                context.strokeStyle = '#fff';
+                context.lineWidth = 1;
+                context.stroke();
+              });
             });
         }
-        
-        // Handle click events
-        function handleTimelineClick(event) {
-            if (!timelineCanvas) { 
-                return;
+
+        // Handle mouse events for tooltip
+        canvas.addEventListener('mousemove', function(event) {
+          const rect = canvas.getBoundingClientRect();
+          const x = event.clientX - rect.left;
+          const y = event.clientY - rect.top;
+
+          // Create projection for the whole world
+          const projection = createProjection(canvas.width, canvas.height);
+
+          // Check if mouse is over any point
+          let hoveredLocation = null;
+
+          window.locations.forEach(function(location) {
+            const [pointX, pointY] = projection(location.coordinates);
+            const radius = getRadius(location.startDate, location.endDate);
+
+            const distance = Math.sqrt(Math.pow(x * window.devicePixelRatio - pointX, 2) +
+              Math.pow(y * window.devicePixelRatio - pointY, 2));
+
+            if (distance <= radius) {
+              hoveredLocation = location;
             }
-            
-            const rect = timelineCanvas.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-            
-            const locations = window.locations;
-            const timeScale = createTimeScale();
-            
-            // Check which section was clicked
-            for (let i = 0; i < window.locations.length; i++) {
-                const location = locations[i];
-                const startX = timeScale(location.startDate);
-                const endX = timeScale(location.endDate);
-                
-                if (x >= startX && x <= endX) {
-                    window.activeLocationIndex = i;
-                    drawTimeline();
-                    break;
-                }
+          });
+
+          // Show or hide tooltip
+          if (hoveredLocation) {
+            const startDateStr = formatDate(hoveredLocation.startDate);
+            const endDateStr = hoveredLocation.endDate instanceof Date ? formatDate(hoveredLocation.endDate) : 'Present';
+            const durationStr = formatDuration(hoveredLocation.startDate, hoveredLocation.endDate);
+
+            tooltip.innerHTML = `
+                <strong>${hoveredLocation.city}, ${hoveredLocation.country}</strong><br>
+                <small>${startDateStr} - ${endDateStr}</small><br>
+                <small>${durationStr}</small><br>
+                <small>${hoveredLocation.description}</small><br>
+            `;
+
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.clientX - rect.left + 10) + 'px';
+            tooltip.style.top = (event.clientY - rect.top + 10) + 'px';
+
+            // Adjust tooltip position if it goes off screen
+            const tooltipRect = tooltip.getBoundingClientRect();
+            if (tooltipRect.right > window.innerWidth) {
+              tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 10) + 'px';
             }
-        }
+            if (tooltipRect.bottom > window.innerHeight) {
+              tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 10) + 'px';
+            }
+          } else {
+            tooltip.style.display = 'none';
+          }
+        });
+
+        canvas.addEventListener('mouseleave', function() {
+          tooltip.style.display = 'none';
+        });
+
+        // Initial draw
+        drawMap();
+      });
     </script>
 </body>
 </html>
