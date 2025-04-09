@@ -146,8 +146,9 @@
       const maxDuration = Math.max(...durations);
       const currentDuration = getDurationInDays(startDate, endDate);
 
-      const minRadius = 6;
-      const maxRadius = 20;
+      // Larger sizes for mobile devices
+      const minRadius = isMobileDevice() ? 12 : 6;
+      const maxRadius = isMobileDevice() ? 30 : 20;
       return minRadius + ((currentDuration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
     }
 
@@ -260,6 +261,38 @@
         });
     }
 
+    // Show tooltip function
+    function showTooltip(location, clientX, clientY, rect) {
+      const startDateStr = formatDate(location.startDate);
+      const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
+      const durationStr = formatDuration(location.startDate, location.endDate);
+
+      tooltip.innerHTML = `
+        <strong>${location.city}, ${location.country}</strong><br>
+        <small>${startDateStr} - ${endDateStr}</small><br>
+        <small>${durationStr}</small><br>
+        <small>${location.description}</small><br>
+      `;
+
+      tooltip.style.display = 'block';
+      tooltip.style.left = (clientX - rect.left + 10) + 'px';
+      tooltip.style.top = (clientY - rect.top + 10) + 'px';
+
+      // Adjust tooltip position if it goes off screen
+      const tooltipRect = tooltip.getBoundingClientRect();
+      if (tooltipRect.right > window.innerWidth) {
+        tooltip.style.left = (clientX - rect.left - tooltipRect.width - 10) + 'px';
+      }
+      if (tooltipRect.bottom > window.innerHeight) {
+        tooltip.style.top = (clientY - rect.top - tooltipRect.height - 10) + 'px';
+      }
+    }
+
+    // Hide tooltip function
+    function hideTooltip() {
+      tooltip.style.display = 'none';
+    }
+
     // Handle mouse events for tooltip
     canvas.addEventListener('mousemove', function (event) {
       const rect = canvas.getBoundingClientRect();
@@ -286,37 +319,58 @@
 
       // Show or hide tooltip
       if (hoveredLocation) {
-        const startDateStr = formatDate(hoveredLocation.startDate);
-        const endDateStr = hoveredLocation.endDate instanceof Date ? formatDate(hoveredLocation.endDate) : 'Present';
-        const durationStr = formatDuration(hoveredLocation.startDate, hoveredLocation.endDate);
-
-        tooltip.innerHTML = `
-                <strong>${hoveredLocation.city}, ${hoveredLocation.country}</strong><br>
-                <small>${startDateStr} - ${endDateStr}</small><br>
-                <small>${durationStr}</small><br>
-                <small>${hoveredLocation.description}</small><br>
-            `;
-
-        tooltip.style.display = 'block';
-        tooltip.style.left = (event.clientX - rect.left + 10) + 'px';
-        tooltip.style.top = (event.clientY - rect.top + 10) + 'px';
-
-        // Adjust tooltip position if it goes off screen
-        const tooltipRect = tooltip.getBoundingClientRect();
-        if (tooltipRect.right > window.innerWidth) {
-          tooltip.style.left = (event.clientX - rect.left - tooltipRect.width - 10) + 'px';
-        }
-        if (tooltipRect.bottom > window.innerHeight) {
-          tooltip.style.top = (event.clientY - rect.top - tooltipRect.height - 10) + 'px';
-        }
+        showTooltip(hoveredLocation, event.clientX, event.clientY, rect);
       } else {
-        tooltip.style.display = 'none';
+        hideTooltip();
       }
     });
-
     canvas.addEventListener('mouseleave', function () {
-      tooltip.style.display = 'none';
+      hideTooltip();
     });
+
+    // Add touch events for mobile
+    canvas.addEventListener('touchstart', handleTouch);
+    canvas.addEventListener('touchmove', handleTouch);
+
+    // Handle touch events
+    function handleTouch(event) {
+      event.preventDefault(); // Prevent scrolling when touching the canvas
+
+      if (event.touches.length > 0) {
+        const touch = event.touches[0];
+        const rect = canvas.getBoundingClientRect();
+        const x = touch.clientX - rect.left;
+        const y = touch.clientY - rect.top;
+
+        // Use a larger detection radius for touch events
+        const extraTouchRadius = isMobileDevice() ? 15 : 0;
+
+        // Create projection for the whole world
+        const projection = createProjection(canvas.width, canvas.height);
+
+        // Check if touch is over any point
+        let touchedLocation = null;
+
+        window.locations.forEach(function (location) {
+          const [pointX, pointY] = projection(location.coordinates);
+          const radius = getRadius(location.startDate, location.endDate) + extraTouchRadius;
+
+          const distance = Math.sqrt(Math.pow(x * window.devicePixelRatio - pointX, 2) +
+            Math.pow(y * window.devicePixelRatio - pointY, 2));
+
+          if (distance <= radius) {
+            touchedLocation = location;
+          }
+        });
+
+        // Show or hide tooltip
+        if (touchedLocation) {
+          showTooltip(touchedLocation, touch.clientX, touch.clientY, rect);
+        } else {
+          hideTooltip();
+        }
+      }
+    }
 
     // Initial draw
     drawMap();
