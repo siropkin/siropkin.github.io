@@ -216,7 +216,7 @@
 
       // Dynamically calculate available height
       const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - buffer;
-      container.style.height = `${Math.max(100, availableHeight)}px`;
+      container.style.height = `${Math.max(250, availableHeight)}px`;
 
       const dpr = window.devicePixelRatio || 1;
       canvas.width = container.clientWidth * dpr;
