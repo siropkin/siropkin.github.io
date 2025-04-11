@@ -173,8 +173,8 @@
 
       return (start, end) => {
         const duration = getDurationDays(start, end);
-        const minRadius = isMobile() ? 12 : 6;
-        const maxRadius = isMobile() ? 30 : 20;
+        const minRadius = isMobile() ? 10 : 6;
+        const maxRadius = isMobile() ? 24 : 18;
 
         return minRadius + ((duration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
       };
