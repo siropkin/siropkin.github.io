@@ -115,6 +115,9 @@
     }
   ];
 
+  // Current date
+  const now = new Date();
+
   // Initialize app when DOM is ready
   document.addEventListener('DOMContentLoaded', () => {
     // Initialize map
@@ -146,8 +149,9 @@
     });
 
     const getDurationDays = (start, end) => {
-      const endDate = end instanceof Date ? end : new Date();
-      return Math.ceil(Math.abs(endDate - start) / (1000 * 60 * 60 * 24));
+      const startDate = start instanceof Date ? start : now;
+      const endDate = end instanceof Date ? end : now;
+      return Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24));
     };
 
     const formatDuration = (start, end) => {
@@ -177,6 +181,23 @@
         const maxRadius = isMobile() ? 24 : 18;
 
         return minRadius + ((duration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
+      };
+    })();
+
+    // Calculate point opacity based on duration
+    const calculateOpacity = (() => {
+      const durations = locationData.map(loc =>
+        getDurationDays(loc.endDate, now)
+      );
+      const minDuration = Math.min(...durations);
+      const maxDuration = Math.max(...durations);
+
+      return (end) => {
+        const duration = getDurationDays(end, now);
+        const minOpacity = 0.25;
+        const maxOpacity = 1;
+
+        return maxOpacity - ((duration - minDuration) / (maxDuration - minDuration)) * (maxOpacity - minOpacity);
       };
     })();
 
@@ -243,11 +264,14 @@
     const drawLocationPoint = (location) => {
       const [x, y] = projection(location.coordinates);
       const radius = calculateRadius(location.startDate, location.endDate);
+      const opacity = calculateOpacity(location.endDate);
 
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
+      ctx.globalAlpha = opacity;
       ctx.fillStyle = '#000';
       ctx.fill();
+      ctx.globalAlpha = 1;
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1;
       ctx.stroke();
