@@ -313,12 +313,13 @@
       const startDateStr = formatDate(location.startDate);
       const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
       const durationStr = formatDuration(location.startDate, location.endDate);
+      const distanceStr = location.endDate instanceof Date ? `${formatDuration(location.endDate, now)}` : 'Still here!'
 
       tooltip.innerHTML = `
         <strong>${location.city}, ${location.country}</strong><br>
-        <small>${startDateStr} - ${endDateStr}</small><br>
-        <small>${durationStr}</small><br>
-        <small>${location.description}</small>
+        <small>🗓️ ${startDateStr} — ${endDateStr}</small><br>
+        <small>⏳ Time Spent: ${durationStr}</small><br>
+        <small>⏰ Time Passed: ${distanceStr}</small><br>
     `;
 
       tooltip.style.display = 'block';
