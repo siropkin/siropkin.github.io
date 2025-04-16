@@ -177,31 +177,16 @@
       );
       const minDuration = Math.min(...durations);
       const maxDuration = Math.max(...durations);
-
-      return (start, end) => {
-        const duration = getDurationDays(start, end);
-        const minRadius = isMobile() ? 10 : 6;
-        const maxRadius = isMobile() ? 24 : 18;
-
-        return minRadius + ((duration - minDuration) / (maxDuration - minDuration)) * (maxRadius - minRadius);
-      };
+      const minRadius = isMobile() ? 10 : 6;
+      const maxRadius = isMobile() ? 24 : 18;
+      const radius = d3.scaleLinear([minDuration, maxDuration], [minRadius, maxRadius]);
+      return (start, end) => radius(getDurationDays(start, end));
     })();
 
-    // Calculate point opacity based on duration
-    const calculateOpacity = (() => {
-      const durations = locationData.map(loc =>
-        getDurationDays(loc.endDate, now)
-      );
-      const minDuration = Math.min(...durations);
-      const maxDuration = Math.max(...durations);
-
-      return (end) => {
-        const duration = getDurationDays(end, now);
-        const minOpacity = 0.25;
-        const maxOpacity = 1;
-
-        return maxOpacity - ((duration - minDuration) / (maxDuration - minDuration)) * (maxOpacity - minOpacity);
-      };
+    // Calculate point color based on end date
+    const calculateColor = (() => {
+      const color = d3.scaleTime([locationData[0].endDate, now], ["#A9A9A9", "#000000"]);
+      return (end) => color(end);
     })();
 
     // Create map projection based on locations
@@ -267,16 +252,14 @@
     const drawLocationPoint = (location) => {
       const [x, y] = projection(location.coordinates);
       const radius = calculateRadius(location.startDate, location.endDate);
-      const opacity = calculateOpacity(location.endDate);
+      const color = calculateColor(location.endDate);
 
       ctx.beginPath();
       ctx.arc(x, y, radius, 0, 2 * Math.PI);
-      ctx.globalAlpha = opacity;
-      ctx.fillStyle = '#000';
+      ctx.fillStyle = color;
       ctx.fill();
-      ctx.globalAlpha = 1;
       ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
       ctx.stroke();
     };
 
