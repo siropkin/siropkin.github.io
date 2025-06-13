@@ -336,11 +336,12 @@
     const drawMap = () => {
       if (!ctx) return;
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      overlays.innerHTML = '';
-
       d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         .then(world => {
+          // Clear canvas and remove overlays
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          overlays.innerHTML = '';
+
           // Draw countries
           ctx.beginPath();
           path(topojson.feature(world, world.objects.countries));
