@@ -36,6 +36,26 @@
             position: relative;
             width: 100%;
         }
+
+        #map-overlays {
+            position: absolute;
+            top: 0;
+            left:0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .map-overlay-btn span {
+            position: absolute !important;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
     </style>
 </head>
 <body>
@@ -48,6 +68,7 @@
         <p>And this is my journey around the world:</p>
         <div id="map-container">
             <canvas id="map"></canvas>
+            <div id="map-overlays"></div>
             <div id="tooltip"></div>
         </div>
     </section>
@@ -137,9 +158,20 @@
 
   // Map application factory
   function createMapApp(locationData) {
+    // Configuration Constants
+    const MOBILE_BREAKPOINT = 768;
+    const MAP_SCALE_FACTOR_MOBILE = 3.5;
+    const MAP_SCALE_FACTOR_DESKTOP = 6.5;
+    const MIN_RADIUS_MOBILE = 10;
+    const MAX_RADIUS_MOBILE = 24;
+    const MIN_RADIUS_DESKTOP = 6;
+    const MAX_RADIUS_DESKTOP = 18;
+    const CANVAS_HEIGHT_BUFFER = 100;
+
     // DOM elements
     const container = document.getElementById('map-container');
     const canvas = document.getElementById('map');
+    const overlays = document.getElementById('map-overlays');
     const tooltip = document.getElementById('tooltip');
 
     // Canvas context
@@ -172,7 +204,7 @@
       ].filter(Boolean).join(' ');
     };
 
-    const isMobile = () => window.innerWidth <= 768;
+    const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
 
     // Calculate point radius based on duration
     const calculateRadius = (() => {
@@ -181,16 +213,19 @@
       );
       const minDuration = Math.min(...durations);
       const maxDuration = Math.max(...durations);
-      const minRadius = isMobile() ? 10 : 6;
-      const maxRadius = isMobile() ? 24 : 18;
-      const radius = d3.scaleLinear([minDuration, maxDuration], [minRadius, maxRadius]);
-      return (start, end) => radius(getDurationDays(start, end));
+
+      return (start, end) => {
+        const minRadius = isMobile() ? MIN_RADIUS_MOBILE : MIN_RADIUS_DESKTOP;
+        const maxRadius = isMobile() ? MAX_RADIUS_MOBILE : MAX_RADIUS_DESKTOP;
+        const radius = d3.scaleLinear([minDuration, maxDuration], [minRadius, maxRadius]);
+        return radius(getDurationDays(start, end));
+      };
     })();
 
     // Calculate point color based on end date
     const calculateColor = (() => {
-      const color = d3.scaleTime([locationData[0].endDate, now], ["#A9A9A9", "#000000"]);
-      return (end) => color(end);
+      const color = d3.scaleTime([locationData[0].endDate, now], ["#BFBFBF", "#000000"]).clamp(true);
+      return (endDate) => color(endDate instanceof Date ? endDate : now);
     })();
 
     // Create map projection based on locations
@@ -201,7 +236,7 @@
       const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
       const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
 
-      const scaleFactor = isMobile() ? 3.5 : 6.5;
+      const scaleFactor = isMobile() ? MAP_SCALE_FACTOR_MOBILE : MAP_SCALE_FACTOR_DESKTOP;
 
       return d3.geoMercator()
         .center([centerLon, centerLat])
@@ -214,10 +249,9 @@
       const headerHeight = document.querySelector('header').offsetHeight;
       const paragraphHeight = document.querySelector('#journey p').offsetHeight;
       const footerHeight = document.querySelector('footer').offsetHeight;
-      const buffer = 100;
 
       // Dynamically calculate available height
-      const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - buffer;
+      const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - CANVAS_HEIGHT_BUFFER;
       container.style.height = `${Math.max(250, availableHeight)}px`;
 
       const dpr = window.devicePixelRatio || 1;
@@ -233,27 +267,11 @@
       drawMap();
     };
 
-    // Check if point is under cursor/touch
-    const findLocationAtPoint = (x, y, extraRadius = 0) => {
-      const dpr = window.devicePixelRatio || 1;
-      const canvasX = x * dpr;
-      const canvasY = y * dpr;
-
-      return [...locationData].reverse().find(location => {
-        const [pointX, pointY] = projection(location.coordinates);
-        const radius = calculateRadius(location.startDate, location.endDate) + extraRadius;
-
-        const distance = Math.sqrt(
-          Math.pow(canvasX - pointX, 2) +
-          Math.pow(canvasY - pointY, 2)
-        );
-
-        return distance <= radius;
-      });
-    };
-
-    // Draw a single point on the map
+    // Draw a single point on the map and create overlay button
     const drawLocationPoint = (location) => {
+      if (!projection) return;
+
+      // Draw point on canvas
       const [x, y] = projection(location.coordinates);
       const radius = calculateRadius(location.startDate, location.endDate);
       const color = calculateColor(location.endDate);
@@ -265,6 +283,53 @@
       ctx.strokeStyle = '#fff';
       ctx.lineWidth = 1.5;
       ctx.stroke();
+
+      // Create overlay button for accessibility
+      const dpr = window.devicePixelRatio || 1;
+      const cssX = x / dpr;
+      const cssY = y / dpr;
+      const cssRadius = radius / dpr;
+
+      const startDateStr = formatDate(location.startDate);
+      const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
+      const durationStr = formatDuration(location.startDate, location.endDate);
+      const label = `${location.city}, ${location.country}. From ${startDateStr} to ${endDateStr} (${durationStr})`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'map-overlay-btn';
+      btn.setAttribute('aria-label', label);
+      btn.setAttribute('tabindex', '0');
+      Object.assign(btn.style, {
+        position: 'absolute',
+        left: `${cssX - cssRadius}px`,
+        top: `${cssY - cssRadius}px`,
+        width: `${cssRadius * 2}px`,
+        height: `${cssRadius * 2}px`,
+        border: 'none',
+        borderRadius: '50%',
+        background: 'transparent',
+        padding: '0',
+        margin: '0',
+        cursor: 'pointer',
+        pointerEvents: 'auto',
+      });
+      btn.innerHTML = `<span>${label}</span>`;
+      btn.addEventListener('focus', () => {
+        const rect = btn.getBoundingClientRect();
+        showTooltip(location, rect.left + rect.width / 2, rect.top);
+      });
+      btn.addEventListener('blur', hideTooltip);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const rect = btn.getBoundingClientRect();
+        showTooltip(location, rect.left + rect.width / 2, rect.top);
+      });
+      btn.addEventListener('mouseenter', () => {
+        const rect = btn.getBoundingClientRect();
+        showTooltip(location, rect.left + rect.width / 2, rect.top);
+      });
+      btn.addEventListener('mouseleave', hideTooltip);
+      overlays.appendChild(btn);
     };
 
     // Draw the map with world data and journey points
@@ -272,6 +337,7 @@
       if (!ctx) return;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      overlays.innerHTML = '';
 
       d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
         .then(world => {
@@ -288,7 +354,7 @@
           ctx.lineWidth = 0.5;
           ctx.stroke();
 
-          // Draw journey points
+          // Draw journey points and overlays
           locationData.forEach(location => {
             drawLocationPoint(location);
           });
@@ -351,42 +417,6 @@
       tooltip.style.display = 'none';
     };
 
-    // Event handlers
-    const handleMouseMove = event => {
-      const rect = canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-
-      const location = findLocationAtPoint(x, y);
-
-      if (location) {
-        showTooltip(location, event.clientX, event.clientY);
-        canvas.style.cursor = 'pointer';
-      } else {
-        hideTooltip();
-        canvas.style.cursor = 'default';
-      }
-    };
-
-    const handleTouch = event => {
-      event.preventDefault();
-
-      if (event.touches.length > 0) {
-        const touch = event.touches[0];
-        const rect = canvas.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const y = touch.clientY - rect.top;
-
-        const location = findLocationAtPoint(x, y, isMobile() ? 15 : 0);
-
-        if (location) {
-          showTooltip(location, touch.clientX, touch.clientY);
-        } else {
-          hideTooltip();
-        }
-      }
-    };
-
     // Initialize the application
     const init = () => {
       ctx = canvas.getContext('2d');
@@ -398,10 +428,6 @@
       window.addEventListener('orientationchange', () => {
         setTimeout(() => resizeCanvas(), 100)
       });
-      canvas.addEventListener('mousemove', handleMouseMove);
-      canvas.addEventListener('mouseleave', hideTooltip);
-      canvas.addEventListener('touchstart', handleTouch);
-      canvas.addEventListener('touchmove', handleTouch);
 
       // Initial setup
       resizeCanvas();
