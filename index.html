@@ -288,7 +288,8 @@
       const dpr = window.devicePixelRatio || 1;
       const cssX = x / dpr;
       const cssY = y / dpr;
-      const cssRadius = radius / dpr;
+      const cssExtraRadius = isMobile() ? 15 : 0;
+      const cssRadius = (cssExtraRadius + radius) / dpr;
 
       const startDateStr = formatDate(location.startDate);
       const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
