@@ -28,8 +28,13 @@
             display: none;
             background: white;
             border: 1px solid #666;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             padding: 10px;
             pointer-events: none;
+            z-index: 100;
+            font-size: 14px;
+            max-width: 250px;
         }
 
         #map-container {
@@ -116,7 +121,7 @@
         },
         {
             country: "Russia",
-            city: "Saint Petersburg",
+            city: "St. Petersburg",
             coordinates: [30.3609, 59.9311],
             startDate: new Date(2020, 4, 1),
             endDate: new Date(2022, 2, 4),
@@ -381,11 +386,11 @@
             const distanceStr = location.endDate instanceof Date ? `${formatDuration(location.endDate, now)}` : 'Still here'
 
             tooltip.innerHTML = `
-        <strong>${location.city}, ${location.country}</strong><br>
-        <small>🗓️ ${startDateStr} — ${endDateStr}</small><br>
-        <small>⏳ Time Spent: ${durationStr}</small><br>
-        <small>⏰ Time Passed: ${distanceStr}</small><br>
-      `;
+                <strong>${location.city}, ${location.country}</strong><br>
+                <small>🗓️ ${startDateStr} — ${endDateStr}</small><br>
+                <small>⏳ Time Spent: ${durationStr}</small><br>
+                <small>⏰ Time Passed: ${distanceStr}</small><br>
+            `;
 
             tooltip.style.display = 'block';
 
