@@ -20,26 +20,158 @@
     <meta name="twitter:image" content="https://siropkin.github.io/preview.png">
 
     <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://d3js.org/topojson.v3.min.js"></script>
+
+    <!-- Performance hints -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Web fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <!-- D3.js and TopoJSON -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js" crossorigin="anonymous"></script>
     <style>
+        :root {
+            /* Typography */
+            --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            --font-mono: 'Space Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+
+            /* Colors - Warm Minimal */
+            --color-bg: #fafaf9;
+            --color-surface: #ffffff;
+            --color-text: #1c1917;
+            --color-text-muted: #78716c;
+            --color-border: #e7e5e4;
+            --color-accent: #0f172a;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            font-weight: 400;
+            font-size: 15px;
+            line-height: 1.6;
+            letter-spacing: -0.01em;
+            background-color: var(--color-bg);
+            color: var(--color-text);
+            margin: 0;
+            padding: 1.5rem;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.5rem 0;
+        }
+
+        header {
+            margin-bottom: 0.75rem;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #journey {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        #journey p {
+            margin: 0 0 1rem 0;
+        }
+
+        footer {
+            margin-top: 2rem;
+            flex-shrink: 0;
+        }
+
+        footer p {
+            color: var(--color-text-muted);
+            margin: 0 0 0.5rem 0;
+        }
+
+        footer ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        footer li {
+            margin: 0;
+        }
+
+        footer a {
+            color: var(--color-text);
+            text-decoration: none;
+            border-bottom: 1px solid var(--color-border);
+            transition: border-color 0.2s ease;
+        }
+
+        footer a:hover,
+        footer a:focus {
+            border-bottom-color: var(--color-text);
+        }
+
+        footer a:focus {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 2px;
+            border-radius: 2px;
+        }
+
         #tooltip {
             position: absolute;
             display: none;
-            background: white;
-            border: 1px solid #666;
+            background: var(--color-surface);
+            border: 1px solid var(--color-border);
             border-radius: 4px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            box-shadow: var(--shadow-md);
             padding: 10px;
             pointer-events: none;
             z-index: 100;
-            font-size: 14px;
+            line-height: 1.5;
             max-width: 250px;
+        }
+
+        #tooltip strong {
+            font-weight: 600;
         }
 
         #map-container {
             position: relative;
             width: 100%;
+            flex: 1;
+            min-height: 0;
+            background: var(--color-surface);
+            border-radius: 8px;
+            box-shadow: var(--shadow-sm);
+        }
+
+        #map {
+            border-radius: 8px;
         }
 
         #map-overlays {
@@ -51,6 +183,21 @@
             pointer-events: none;
         }
 
+        .map-overlay-btn {
+            transition: opacity 0.2s ease;
+        }
+
+        .map-overlay-btn:focus {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 0;
+            border-radius: 50%;
+        }
+
+        .map-overlay-btn:focus-visible {
+            outline: 2px solid var(--color-accent);
+            outline-offset: 0;
+        }
+
         .map-overlay-btn span {
             position: absolute !important;
             width: 1px;
@@ -60,6 +207,20 @@
             overflow: hidden;
             clip: rect(0, 0, 0, 0);
             border: 0;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            footer ul {
+                gap: 1rem;
+            }
         }
     </style>
 </head>
@@ -93,7 +254,9 @@
 </footer>
 
 <script>
-    // Journey data
+    // ========================================================================
+    // JOURNEY DATA
+    // ========================================================================
     const locations = [
         {
             country: "Russia",
@@ -153,57 +316,97 @@
         }
     ];
 
-    // Current date
     const now = new Date();
 
-    // Initialize app when DOM is ready
+    // ========================================================================
+    // INITIALIZATION
+    // ========================================================================
     document.addEventListener('DOMContentLoaded', () => {
-        // Initialize map
         const mapApp = createMapApp(locations);
         mapApp.init();
-        setTimeout(() => {
-            mapApp.resizeCanvas();
-        }, 10)
 
-        // Console.log
-        console.log("Psst... there's more! https://www.instagram.com/ivan.seredkin");
+        // Wait for layout before resizing
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                mapApp.resizeCanvas();
+            });
+        });
+
+        // Console easter egg
+        console.log('Psssst... there\'s more → https://www.instagram.com/ivan.seredkin');
     });
 
-    // Map application factory
+    // ========================================================================
+    // MAP APPLICATION FACTORY
+    // ========================================================================
     function createMapApp(locationData) {
-        // Configuration Constants
-        const MOBILE_BREAKPOINT = 768;
-        const MAP_SCALE_FACTOR_MOBILE = 3.5;
-        const MAP_SCALE_FACTOR_DESKTOP = 6.5;
-        const MIN_RADIUS_MOBILE = 12;
-        const MAX_RADIUS_MOBILE = 26;
-        const MIN_RADIUS_DESKTOP = 10;
-        const MAX_RADIUS_DESKTOP = 24;
-        const CANVAS_HEIGHT_BUFFER = 100;
+        // ====================================================================
+        // CONFIGURATION
+        // ====================================================================
+        const CONFIG = {
+            MOBILE_BREAKPOINT: 768,
+            MAP_SCALE: {
+                MOBILE: 3.5,
+                DESKTOP: 6.5
+            },
+            POINT_RADIUS: {
+                MIN: { MOBILE: 12, DESKTOP: 10 },
+                MAX: { MOBILE: 24, DESKTOP: 20 }
+            },
+            POINT_SHADOW_BLUR: 12,
+            POINT_SHADOW_OFFSET: 3,
+            POINT_BORDER_WIDTH: 1,
+            MAP_BORDER_WIDTH: 0.8,
+            MOBILE_TOUCH_BOOST_PERCENT: 1.15,
+            DEBOUNCE_DELAY: 100,
+            COLORS: {
+                COUNTRIES: '#f8f8f7',
+                BORDERS: '#a8a29e',
+                TEXT_NUMBER: '#ffffff'
+            }
+        };
 
-        // DOM elements
-        const container = document.getElementById('map-container');
-        const canvas = document.getElementById('map');
-        const overlays = document.getElementById('map-overlays');
-        const tooltip = document.getElementById('tooltip');
+        // ====================================================================
+        // DOM ELEMENTS
+        // ====================================================================
+        const DOM = {
+            container: document.getElementById('map-container'),
+            canvas: document.getElementById('map'),
+            overlays: document.getElementById('map-overlays'),
+            tooltip: document.getElementById('tooltip')
+        };
 
-        // Canvas context
-        let ctx;
+        // ====================================================================
+        // STATE
+        // ====================================================================
+        let ctx = null;
+        let projection = null;
+        let path = null;
+        let cachedWorldData = null;
 
-        // Cached projection and path generator
-        let projection;
-        let path;
+        // ====================================================================
+        // UTILITIES
+        // ====================================================================
+        const debounce = (func, delay) => {
+            let timeoutId;
+            return (...args) => {
+                clearTimeout(timeoutId);
+                timeoutId = setTimeout(() => func(...args), delay);
+            };
+        };
 
-        // Utils
+        const isMobile = () => window.innerWidth <= CONFIG.MOBILE_BREAKPOINT;
+
         const formatDate = date => date.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short'
         });
 
         const getDurationDays = (start, end) => {
-            const startDate = start instanceof Date ? start : now;
-            const endDate = end instanceof Date ? end : now;
-            return Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24));
+            const startDate = start instanceof Date && !isNaN(start) ? start : now;
+            const endDate = end instanceof Date && !isNaN(end) ? end : now;
+            const diff = Math.abs(endDate - startDate);
+            return Math.ceil(diff / (1000 * 60 * 60 * 24));
         };
 
         const formatDuration = (start, end) => {
@@ -221,9 +424,9 @@
             ].filter(Boolean).join(' ');
         };
 
-        const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
-
-        // Calculate point radius based on duration
+        // ====================================================================
+        // COLOR & SIZING CALCULATORS
+        // ====================================================================
         const calculateRadius = (() => {
             const durations = locationData.map(loc =>
                 getDurationDays(loc.startDate, loc.endDate)
@@ -232,26 +435,36 @@
             const maxDuration = Math.max(...durations);
 
             return (start, end) => {
-                const minRadius = isMobile() ? MIN_RADIUS_MOBILE : MIN_RADIUS_DESKTOP;
-                const maxRadius = isMobile() ? MAX_RADIUS_MOBILE : MAX_RADIUS_DESKTOP;
+                const minRadius = isMobile()
+                    ? CONFIG.POINT_RADIUS.MIN.MOBILE
+                    : CONFIG.POINT_RADIUS.MIN.DESKTOP;
+                const maxRadius = isMobile()
+                    ? CONFIG.POINT_RADIUS.MAX.MOBILE
+                    : CONFIG.POINT_RADIUS.MAX.DESKTOP;
                 const radius = d3.scaleLinear([minDuration, maxDuration], [minRadius, maxRadius]);
                 return radius(getDurationDays(start, end));
             };
         })();
 
-        // Calculate point background color based on end date
         const calculateBackgroundColor = (() => {
-            const color = d3.scaleTime([locationData[0].endDate, now], ["#e0e0e0", "#000"]).clamp(true);
+            const color = d3.scaleTime(
+                [locationData[0].endDate, now],
+                ["#e0e0e0", "#1c1917"]
+            ).clamp(true);
             return (endDate) => color(endDate instanceof Date ? endDate : now);
         })();
 
-        // Calculate point border color based on end date
         const calculateBorderColor = (() => {
-            const color = d3.scaleTime([locationData[0].endDate, now], ["#888", "#e0e0e0"]).clamp(true);
+            const color = d3.scaleTime(
+                [locationData[0].endDate, now],
+                ["#a8a29e", "#f5f5f4"]
+            ).clamp(true);
             return (endDate) => color(endDate instanceof Date ? endDate : now);
         })();
 
-        // Create map projection based on locations
+        // ====================================================================
+        // PROJECTION & CANVAS
+        // ====================================================================
         const createProjection = (width, height) => {
             const longitudes = locationData.map(loc => loc.coordinates[0]);
             const latitudes = locationData.map(loc => loc.coordinates[1]);
@@ -259,7 +472,7 @@
             const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
             const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
 
-            const scaleFactor = isMobile() ? MAP_SCALE_FACTOR_MOBILE : MAP_SCALE_FACTOR_DESKTOP;
+            const scaleFactor = isMobile() ? CONFIG.MAP_SCALE.MOBILE : CONFIG.MAP_SCALE.DESKTOP;
 
             return d3.geoMercator()
                 .center([centerLon, centerLat])
@@ -267,78 +480,73 @@
                 .translate([width / 2, height / 2]);
         };
 
-        // Set canvas dimensions
         const resizeCanvas = () => {
-            const headerHeight = document.querySelector('header').offsetHeight;
-            const paragraphHeight = document.querySelector('#journey p').offsetHeight;
-            const footerHeight = document.querySelector('footer').offsetHeight;
-
-            // Dynamically calculate available height
-            const availableHeight = window.innerHeight - headerHeight - paragraphHeight - footerHeight - CANVAS_HEIGHT_BUFFER;
-            container.style.height = `${Math.max(250, availableHeight)}px`;
-
+            // Container size is handled by flexbox, just update canvas
             const dpr = window.devicePixelRatio || 1;
-            canvas.width = container.clientWidth * dpr;
-            canvas.height = container.clientHeight * dpr;
-            canvas.style.width = `${container.clientWidth}px`;
-            canvas.style.height = `${container.clientHeight}px`;
+            const width = DOM.container.clientWidth;
+            const height = DOM.container.clientHeight;
 
-            // Update projection and path when resized
-            projection = createProjection(canvas.width, canvas.height);
+            DOM.canvas.width = width * dpr;
+            DOM.canvas.height = height * dpr;
+            DOM.canvas.style.width = `${width}px`;
+            DOM.canvas.style.height = `${height}px`;
+
+            projection = createProjection(DOM.canvas.width, DOM.canvas.height);
             path = d3.geoPath().projection(projection).context(ctx);
 
             drawMap();
         };
 
-        // Draw a single point on the map and create overlay button
+        // ====================================================================
+        // DRAWING FUNCTIONS
+        // ====================================================================
         const drawLocationPoint = (location, index) => {
             if (!projection) return;
 
-            // Draw point on canvas
             const [x, y] = projection(location.coordinates);
             const radius = calculateRadius(location.startDate, location.endDate);
             const backgroundColor = calculateBackgroundColor(location.endDate);
             const borderColor = calculateBorderColor(location.endDate);
 
+            const dpr = window.devicePixelRatio || 1;
+
+            // Draw point with shadow
             ctx.save();
-            ctx.shadowColor = 'rgba(0,0,0,0.15)';
-            ctx.shadowBlur = 8;
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+            ctx.shadowBlur = CONFIG.POINT_SHADOW_BLUR * dpr;
             ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 2;
+            ctx.shadowOffsetY = CONFIG.POINT_SHADOW_OFFSET * dpr;
             ctx.beginPath();
-            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.arc(x, y, radius * dpr, 0, 2 * Math.PI);
             ctx.globalAlpha = Math.min(1, Math.max(0.5, index / (locationData.length - 1)));
             ctx.fillStyle = backgroundColor;
             ctx.fill();
             ctx.globalAlpha = 1;
-            ctx.shadowColor = 'transparent'; // Remove shadow for stroke
+            ctx.shadowColor = 'transparent';
             ctx.strokeStyle = borderColor;
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = CONFIG.POINT_BORDER_WIDTH * dpr;
             ctx.stroke();
             ctx.restore();
 
-            // Draw order number inside the circle
+            // Draw order number
             const orderNumber = index + 1;
-            const fontSize = Math.max(10, radius * 0.8);
+            const fontSize = Math.max(10, radius * 0.8) * dpr;
             ctx.font = `bold ${fontSize}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-
-            // Use white text for better contrast
-            ctx.fillStyle = '#fff';
+            ctx.fillStyle = CONFIG.COLORS.TEXT_NUMBER;
             ctx.fillText(orderNumber.toString(), x, y);
 
             // Create overlay button for accessibility
-            const dpr = window.devicePixelRatio || 1;
             const cssX = x / dpr;
             const cssY = y / dpr;
-            const cssExtraRadius = isMobile() ? 15 : 0;
-            const cssRadius = (cssExtraRadius + radius) / dpr;
+            const cssRadius = isMobile() ? radius * CONFIG.MOBILE_TOUCH_BOOST_PERCENT : radius;
 
             const startDateStr = formatDate(location.startDate);
             const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
             const durationStr = formatDuration(location.startDate, location.endDate);
             const label = `${location.city}, ${location.country}. From ${startDateStr} to ${endDateStr} (${durationStr})`;
+
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.className = 'map-overlay-btn';
@@ -359,128 +567,157 @@
                 pointerEvents: 'auto',
             });
             btn.innerHTML = `<span>${label}</span>`;
+
             btn.addEventListener('focus', () => {
                 const rect = btn.getBoundingClientRect();
-                showTooltip(location, rect.left + rect.width / 2, rect.top);
+                showTooltip(location, rect.left + rect.width / 2, rect.top + rect.height / 2, cssRadius);
             });
             btn.addEventListener('blur', hideTooltip);
             btn.addEventListener('click', (e) => {
                 e.preventDefault();
                 const rect = btn.getBoundingClientRect();
-                showTooltip(location, rect.left + rect.width / 2, rect.top);
+                showTooltip(location, rect.left + rect.width / 2, rect.top + rect.height / 2, cssRadius);
             });
             btn.addEventListener('mouseenter', () => {
                 const rect = btn.getBoundingClientRect();
-                showTooltip(location, rect.left + rect.width / 2, rect.top);
+                showTooltip(location, rect.left + rect.width / 2, rect.top + rect.height / 2, cssRadius);
             });
             btn.addEventListener('mouseleave', hideTooltip);
-            overlays.appendChild(btn);
+
+            DOM.overlays.appendChild(btn);
         };
 
-        // Draw the map with world data and journey points
-        const drawMap = () => {
+        const drawMap = async () => {
             if (!ctx) return;
 
-            d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-                .then(world => {
-                    // Clear canvas and remove overlays
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    overlays.innerHTML = '';
-
-                    // Draw countries
-                    ctx.beginPath();
-                    path(topojson.feature(world, world.objects.countries));
-                    ctx.fillStyle = '#fff';
-                    ctx.fill();
-
-                    // Draw borders
-                    ctx.beginPath();
-                    path(topojson.mesh(world, world.objects.countries));
-                    ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 0.5;
-                    ctx.stroke();
-
-                    // Draw journey points and overlays
-                    locationData.forEach((location, index) => {
-                        drawLocationPoint(location, index);
-                    });
-                })
-                .catch(error => {
+            // Cache world data on first load
+            if (!cachedWorldData) {
+                try {
+                    cachedWorldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+                } catch (error) {
                     console.error('Error loading world data:', error);
-                });
+                    return;
+                }
+            }
+
+            const world = cachedWorldData;
+
+            // Clear canvas and overlays
+            ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+            DOM.overlays.innerHTML = '';
+
+            // Draw countries
+            ctx.beginPath();
+            path(topojson.feature(world, world.objects.countries));
+            ctx.fillStyle = CONFIG.COLORS.COUNTRIES;
+            ctx.fill();
+
+            // Draw borders
+            ctx.beginPath();
+            path(topojson.mesh(world, world.objects.countries));
+            ctx.strokeStyle = CONFIG.COLORS.BORDERS;
+            ctx.lineWidth = CONFIG.MAP_BORDER_WIDTH;
+            ctx.stroke();
+
+            // Draw journey points
+            locationData.forEach((location, index) => {
+                drawLocationPoint(location, index);
+            });
         };
 
-        // Tooltip handling
-        const showTooltip = (location, x, y) => {
+        // ====================================================================
+        // INTERACTION HANDLERS
+        // ====================================================================
+        const showTooltip = (location, x, y, buttonRadius) => {
             const startDateStr = formatDate(location.startDate);
             const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
             const durationStr = formatDuration(location.startDate, location.endDate);
-            const distanceStr = location.endDate instanceof Date ? `${formatDuration(location.endDate, now)}` : 'Still here'
+            const distanceStr = location.endDate instanceof Date
+                ? `${formatDuration(location.endDate, now)}`
+                : 'Still here';
 
-            tooltip.innerHTML = `
+            DOM.tooltip.innerHTML = `
                 <strong>${location.city}, ${location.country}</strong><br>
                 <small>🗓️ ${startDateStr} — ${endDateStr}</small><br>
                 <small>⏳ Time Spent: ${durationStr}</small><br>
                 <small>⏰ Time Passed: ${distanceStr}</small><br>
             `;
 
-            tooltip.style.display = 'block';
+            DOM.tooltip.style.display = 'block';
 
-            // Calculate initial position
-            let left = x + 10;
-            let top = y - tooltip.offsetHeight;
+            // Smart tooltip positioning with viewport boundary detection
+            const tooltipRect = DOM.tooltip.getBoundingClientRect();
+            const gap = 8;
+            const offset = buttonRadius + gap;
 
-            // Check if tooltip goes beyond screen boundaries
-            const viewportWidth = window.innerWidth;
-            const viewportHeight = window.innerHeight;
+            // Position to the right, with top edge aligned with button top edge
+            let left = x + offset;
+            let top = y + offset;
 
-            // Adjust horizontal position if needed
-            if (left + tooltip.offsetWidth > viewportWidth) {
-                left = x - tooltip.offsetWidth - 10;
+            // If doesn't fit on right, try left
+            if (left + tooltipRect.width > window.innerWidth - gap) {
+                left = x - tooltipRect.width - offset;
             }
 
-            // Ensure left is not negative
-            if (left < 0) {
-                left = 10;
+            // Ensure tooltip stays within viewport bounds
+            if (left < gap) {
+                left = gap;
             }
 
-            // Adjust vertical position if needed
-            if (top < 0) {
-                top = y + 10; // Position below instead of above
+            // Vertical adjustments to keep in viewport
+            if (top < gap) {
+                top = gap;
+            }
+            if (top + tooltipRect.height > window.innerHeight - gap) {
+                top = window.innerHeight - tooltipRect.height - gap;
             }
 
-            // Ensure tooltip doesn't go beyond bottom edge
-            if (top + tooltip.offsetHeight > viewportHeight) {
-                top = viewportHeight - tooltip.offsetHeight - 10;
-            }
+            // Tooltip is positioned relative to #map-container, not viewport
+            const containerRect = DOM.container.getBoundingClientRect();
+            const finalLeft = left - containerRect.left;
+            const finalTop = top - containerRect.top;
 
-            // Apply the adjusted position
-            tooltip.style.left = `${left}px`;
-            tooltip.style.top = `${top}px`;
+            DOM.tooltip.style.left = `${finalLeft}px`;
+            DOM.tooltip.style.top = `${finalTop}px`;
         };
 
         const hideTooltip = () => {
-            tooltip.style.display = 'none';
+            DOM.tooltip.style.display = 'none';
         };
 
-        // Initialize the application
+        // ====================================================================
+        // INITIALIZATION
+        // ====================================================================
         const init = () => {
-            ctx = canvas.getContext('2d');
+            ctx = DOM.canvas.getContext('2d');
+            if (!ctx) {
+                console.error('Failed to get 2D canvas context');
+                DOM.container.innerHTML = '<p style="text-align:center;padding:2rem;">Canvas not supported in your browser</p>';
+                return;
+            }
 
-            // Set up event listeners
-            window.addEventListener('resize', () => {
-                setTimeout(() => resizeCanvas(), 10)
-            });
+            // Set up resize handlers
+            const debouncedResize = debounce(() => {
+                requestAnimationFrame(resizeCanvas);
+            }, CONFIG.DEBOUNCE_DELAY);
+
+            window.addEventListener('resize', debouncedResize);
+
+            // Handle orientation change immediately without debounce
             window.addEventListener('orientationchange', () => {
-                setTimeout(() => resizeCanvas(), 100)
+                setTimeout(() => {
+                    requestAnimationFrame(resizeCanvas);
+                }, 50);
             });
 
-            // Initial setup
+            // Initial draw
             resizeCanvas();
         };
 
-        // Public API
-        return {init, resizeCanvas};
+        // ====================================================================
+        // PUBLIC API
+        // ====================================================================
+        return { init, resizeCanvas };
     }
 </script>
 </body>
