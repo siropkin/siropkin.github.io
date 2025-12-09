@@ -1,0 +1,213 @@
+:root {
+    /* Typography */
+    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-mono: 'Space Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+
+    /* Colors - Warm Minimal */
+    --color-bg: #fafaf9;
+    --color-surface: #ffffff;
+    --color-text: #1c1917;
+    --color-text-muted: #78716c;
+    --color-border: #e7e5e4;
+    --color-accent: #0f172a;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-size: 15px;
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    margin: 0;
+    padding: 1.5rem;
+    height: 100vh;  /* Fallback for older browsers */
+    height: 100dvh; /* Dynamic viewport height for modern browsers */
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+h1 {
+    font-weight: 700;
+    font-size: 2rem;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem 0;
+}
+
+header {
+    margin-bottom: 0.75rem;
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#journey {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+#journey p {
+    margin: 0 0 1rem 0;
+}
+
+footer {
+    margin-top: 2rem;
+    flex-shrink: 0;
+}
+
+footer p {
+    color: var(--color-text-muted);
+    margin: 0 0 0.5rem 0;
+}
+
+footer ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+footer li {
+    margin: 0;
+}
+
+footer a {
+    color: var(--color-text);
+    text-decoration: none;
+    border-bottom: 1px solid var(--color-border);
+    transition: border-color 0.2s ease;
+}
+
+footer a:hover,
+footer a:focus {
+    border-bottom-color: var(--color-text);
+}
+
+footer a:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 2px;
+}
+
+#tooltip {
+    position: absolute;
+    display: none;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    box-shadow: var(--shadow-md);
+    padding: 10px;
+    pointer-events: none;
+    z-index: 100;
+    line-height: 1.5;
+    max-width: 250px;
+}
+
+#tooltip strong {
+    font-weight: 600;
+}
+
+#map-container {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    background: var(--color-surface);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+}
+
+#map {
+    border-radius: 8px;
+}
+
+#map-overlays {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.map-overlay-btn {
+    transition: opacity 0.2s ease;
+}
+
+.map-overlay-btn:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 0;
+    border-radius: 50%;
+}
+
+.map-overlay-btn:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 0;
+}
+
+.map-overlay-btn span {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* Pulsing animation for current position */
+@keyframes pulse-ring {
+    0% {
+        transform: scale(1);
+        opacity: 0.6;
+    }
+    100% {
+        transform: scale(1.8);
+        opacity: 0;
+    }
+}
+
+.map-overlay-btn.i-am-here::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: rgba(28, 25, 23, 0.3);
+    animation: pulse-ring 2s ease-out infinite;
+}
+
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+
+    h1 {
+        font-size: 1.5rem;
+    }
+
+    footer ul {
+        gap: 1rem;
+    }
+}
