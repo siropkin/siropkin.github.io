@@ -44,6 +44,41 @@ h1 {
     margin: 0 0 0.5rem 0;
 }
 
+#wave-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    font-size: inherit;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: transform 0.1s ease;
+}
+
+#wave-btn:hover {
+    transform: scale(1.1);
+}
+
+#wave-btn:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+#wave-btn:active {
+    transform: scale(0.95);
+}
+
+@keyframes wave-hand {
+    0%, 100% { transform: rotate(0deg); }
+    25% { transform: rotate(20deg); }
+    75% { transform: rotate(-20deg); }
+}
+
+#wave-btn.waving {
+    animation: wave-hand 0.4s ease-in-out;
+    transform-origin: 70% 70%;
+}
+
 header {
     margin-bottom: 0.75rem;
 }
@@ -186,7 +221,7 @@ footer a:focus {
     }
 }
 
-.map-overlay-btn.i-am-here::before {
+.map-overlay-btn.current-position::before {
     content: '';
     position: absolute;
     top: 0;

@@ -76,6 +76,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Wave button - replay journey animation
+    const waveBtn = document.getElementById('wave-btn');
+    if (waveBtn) {
+        const triggerReplay = () => {
+            waveBtn.classList.remove('waving');
+            // Force reflow to restart animation
+            void waveBtn.offsetWidth;
+            waveBtn.classList.add('waving');
+            mapApp.replayJourney();
+        };
+
+        waveBtn.addEventListener('click', triggerReplay);
+        waveBtn.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                triggerReplay();
+            }
+        });
+    }
+
     // Console easter egg
     console.log('Psssst... there\'s more → https://www.instagram.com/ivan.seredkin');
 });
@@ -102,6 +122,7 @@ function createMapApp(locationData) {
         POINT_BORDER_WIDTH: 1,
         MAP_BORDER_WIDTH: 0.8,
         DEBOUNCE_DELAY: 100,
+        REPLAY_POINT_DELAY: 500,
         COLORS: {
             COUNTRIES: '#f8f8f7',
             BORDERS: '#a8a29e',
@@ -126,6 +147,7 @@ function createMapApp(locationData) {
     let projection = null;
     let path = null;
     let cachedWorldData = null;
+    let isAnimating = false;
 
     // ====================================================================
     // UTILITIES
@@ -292,7 +314,7 @@ function createMapApp(locationData) {
 
         const btn = document.createElement('button');
         btn.type = 'button';
-        btn.className = 'map-overlay-btn' + (index === locationData.length - 1 ? ' i-am-here' : '');
+        btn.className = 'map-overlay-btn' + (index === locationData.length - 1 ? ' current-position' : '');
         btn.setAttribute('aria-label', label);
         btn.setAttribute('tabindex', '0');
         Object.assign(btn.style, {
@@ -366,6 +388,59 @@ function createMapApp(locationData) {
         locationData.forEach((location, index) => {
             drawLocationPoint(location, index);
         });
+    };
+
+    const drawMapBase = async () => {
+        if (!ctx) return;
+
+        // Cache world data on first load
+        if (!cachedWorldData) {
+            try {
+                cachedWorldData = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+            } catch (error) {
+                console.error('Error loading world data:', error);
+                return;
+            }
+        }
+
+        const world = cachedWorldData;
+
+        // Clear canvas and overlays
+        ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        DOM.overlays.innerHTML = '';
+
+        // Draw countries
+        ctx.beginPath();
+        path(topojson.feature(world, world.objects.countries));
+        ctx.fillStyle = CONFIG.COLORS.COUNTRIES;
+        ctx.fill();
+
+        // Draw borders
+        ctx.beginPath();
+        path(topojson.mesh(world, world.objects.countries));
+        ctx.strokeStyle = CONFIG.COLORS.BORDERS;
+        ctx.lineWidth = CONFIG.MAP_BORDER_WIDTH;
+        ctx.stroke();
+    };
+
+    const replayJourney = async () => {
+        if (isAnimating) return;
+        isAnimating = true;
+
+        // Draw base map (countries and borders only)
+        await drawMapBase();
+
+        // Animate each location appearing one by one
+        for (let i = 0; i < locationData.length; i++) {
+            drawLocationPoint(locationData[i], i);
+
+            // Pause before next point
+            if (i < locationData.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, CONFIG.REPLAY_POINT_DELAY));
+            }
+        }
+
+        isAnimating = false;
     };
 
     // ====================================================================
@@ -460,5 +535,5 @@ function createMapApp(locationData) {
     // ====================================================================
     // PUBLIC API
     // ====================================================================
-    return { init, resizeCanvas };
+    return { init, resizeCanvas, replayJourney };
 }
