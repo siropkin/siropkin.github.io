@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Ivan Seredkin's journey around the world">
     <title>Ivan Seredkin</title>
 
@@ -66,7 +66,8 @@
             color: var(--color-text);
             margin: 0;
             padding: 1.5rem;
-            height: 100vh;
+            height: 100vh;  /* Fallback for older browsers */
+            height: 100dvh; /* Dynamic viewport height for modern browsers */
             overflow: hidden;
             display: flex;
             flex-direction: column;
