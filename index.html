@@ -45,10 +45,38 @@
 <main>
     <section id="journey">
         <p>And this is my journey around the world:</p>
-        <div id="map-container">
-            <canvas id="map"></canvas>
-            <div id="map-overlays"></div>
-            <div id="tooltip"></div>
+
+        <div id="time-machine-wrapper">
+            <!-- Scrollable container -->
+            <div id="time-scroll-container">
+                <div id="time-scroll-spacer"></div>
+            </div>
+
+            <!-- Fixed map viewport -->
+            <div id="map-viewport">
+                <div id="map-container">
+                    <canvas id="map"></canvas>
+                    <div id="map-overlays"></div>
+                    <div id="tooltip"></div>
+                </div>
+
+                <!-- Current date display -->
+                <div id="current-date-display">
+                    <span id="current-year">2025</span>
+                </div>
+
+                <!-- Timeline -->
+                <div id="timeline">
+                    <div id="timeline-ticks"></div>
+                    <div id="timeline-track">
+                        <div id="timeline-progress"></div>
+                        <div id="timeline-thumb"></div>
+                    </div>
+                    <div id="timeline-markers"></div>
+                    <div id="timeline-labels"></div>
+                    <div id="timeline-years"></div>
+                </div>
+            </div>
         </div>
     </section>
 </main>
