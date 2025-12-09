@@ -210,6 +210,30 @@
             border: 0;
         }
 
+        /* Pulsing animation for current position */
+        @keyframes pulse-ring {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        .map-overlay-btn.i-am-here::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 50%;
+            background: rgba(28, 25, 23, 0.3);
+            animation: pulse-ring 2s ease-out infinite;
+        }
+
         @media (max-width: 768px) {
             body {
                 padding: 1rem;
@@ -358,7 +382,6 @@
             POINT_SHADOW_OFFSET: 3,
             POINT_BORDER_WIDTH: 1,
             MAP_BORDER_WIDTH: 0.8,
-            MOBILE_TOUCH_BOOST_PERCENT: 1.15,
             DEBOUNCE_DELAY: 100,
             COLORS: {
                 COUNTRIES: '#f8f8f7',
@@ -541,7 +564,7 @@
             // Create overlay button for accessibility
             const cssX = x / dpr;
             const cssY = y / dpr;
-            const cssRadius = isMobile() ? radius * CONFIG.MOBILE_TOUCH_BOOST_PERCENT : radius;
+            const cssRadius = radius + CONFIG.POINT_BORDER_WIDTH / dpr;
 
             const startDateStr = formatDate(location.startDate);
             const endDateStr = location.endDate instanceof Date ? formatDate(location.endDate) : 'Present';
@@ -550,7 +573,7 @@
 
             const btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'map-overlay-btn';
+            btn.className = 'map-overlay-btn' + (index === locationData.length - 1 ? ' i-am-here' : '');
             btn.setAttribute('aria-label', label);
             btn.setAttribute('tabindex', '0');
             Object.assign(btn.style, {
