@@ -21,6 +21,11 @@
     --timeline-marker-size: 6px;
     --timeline-color: #d4d4d4;
     --timeline-color-active: #737373;
+
+    /* Timeline Wave Effect */
+    --timeline-selected-width: 48px;
+    --timeline-normal-width: 4px;
+    --timeline-wave-radius: 240px;
 }
 
 * {
@@ -267,24 +272,29 @@ footer a:focus {
     font-weight: 700;
 }
 
-/* Timeline */
+/* Timeline - Universal Vertical Design */
 #timeline {
     position: absolute;
-    top: 12px;
-    right: 36px;
-    bottom: 12px;
-    width: var(--timeline-width);
+    top: 60px;
+    right: 12px;
+    bottom: 60px;
+    width: 180px;
     display: flex;
     flex-direction: column;
-    align-items: center;
+    align-items: flex-start;
     pointer-events: auto;
     z-index: 50;
+
+    /* Performance optimization */
+    contain: layout style paint;
+    will-change: transform;
 }
 
 #timeline-track {
     position: absolute;
     top: 0;
     bottom: 0;
+    left: 80px;
     width: var(--timeline-track-width);
     background: var(--timeline-color);
     border-radius: 1px;
@@ -310,7 +320,7 @@ footer a:focus {
     left: 50%;
     transform: translate(-50%, -50%);
     cursor: grab;
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease;
     box-shadow: var(--shadow-sm);
     z-index: 10;
 }
@@ -327,39 +337,26 @@ footer a:focus {
     box-shadow: var(--shadow-md);
 }
 
-#timeline-years {
+/* Timeline Lines - Scroll Reveal */
+#timeline-lines {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: calc(var(--timeline-width) + 4px);
+    left: 0;
+    right: 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.timeline-year {
-    position: absolute;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    text-align: left;
-    transform: translateY(-50%);
-    opacity: 0.6;
-    transition: opacity 0.2s ease, color 0.2s ease;
-    cursor: pointer;
-}
-
-.timeline-year:hover {
+#timeline[data-revealed="true"] #timeline-lines {
     opacity: 1;
+    pointer-events: auto;
 }
 
-.timeline-year.past {
-    color: var(--color-text);
-    opacity: 1;
-}
-
+/* Timeline Markers - Hidden */
 #timeline-markers {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    width: 100%;
+    display: none;
 }
 
 .timeline-marker {
@@ -368,10 +365,10 @@ footer a:focus {
     height: var(--timeline-marker-size);
     background: var(--timeline-color);
     border-radius: 50%;
-    left: 50%;
+    left: 0;
     transform: translate(-50%, -50%);
-    transition: background-color 0.2s ease, transform 0.2s ease;
     cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .timeline-marker:hover {
@@ -387,32 +384,45 @@ footer a:focus {
     background: var(--timeline-color-active);
 }
 
-#timeline-ticks {
+/* Timeline Year Labels */
+#timeline-years {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: calc(50% - 1px);
-    width: 6px;
+    left: 90px;
+    width: 90px;
 }
 
-.timeline-tick {
+.timeline-year {
     position: absolute;
-    left: 0;
-    right: 0;
-    height: var(--timeline-track-width);
-    background: var(--timeline-color);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-align: left;
     transform: translateY(-50%);
+    white-space: nowrap;
+    opacity: 0.4;
+    transition: opacity 0.2s ease, color 0.2s ease;
+    cursor: pointer;
 }
 
-.timeline-tick.past {
-    background: var(--timeline-color-active);
+.timeline-year:hover {
+    opacity: 1;
+    color: var(--color-text);
 }
 
+.timeline-year.past {
+    color: var(--color-text);
+}
+
+/* Timeline City Labels */
 #timeline-labels {
     position: absolute;
     top: 0;
     bottom: 0;
-    right: calc(var(--timeline-width) + 4px);
+    left: 0;
+    width: 72px;
+    text-align: right;
     pointer-events: none;
 }
 
@@ -420,17 +430,17 @@ footer a:focus {
     position: absolute;
     right: 0;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 11px;
     color: var(--color-text-muted);
     white-space: nowrap;
+    text-align: right;
     transform: translateY(-50%);
-    opacity: 0.6;
+    opacity: 0.4;
     transition: opacity 0.2s ease, color 0.2s ease;
 }
 
 .timeline-label.visible {
     color: var(--color-text);
-    opacity: 1;
 }
 
 @media (max-width: 768px) {
@@ -446,99 +456,36 @@ footer a:focus {
         gap: 1rem;
     }
 
-    /* Make space for horizontal timeline below map */
-    #map-viewport {
-        bottom: 32px;
+    /* Timeline - Vertical Mobile Adjustments */
+    :root {
+        --timeline-selected-width: 36px;
+        --timeline-wave-radius: 180px;
     }
 
-    /* Horizontal timeline at bottom */
     #timeline {
-        top: auto;
-        bottom: 0;
-        left: 8px;
         right: 8px;
-        width: auto;
-        height: 28px;
-        flex-direction: row;
+        width: 140px;
     }
 
     #timeline-track {
-        width: 100%;
-        height: var(--timeline-track-width);
-        top: 8px;
-        transform: none;
-    }
-
-    #timeline-progress {
-        width: 0;
-        height: 100%;
-        top: 0;
-        left: 0;
-        right: auto;
-        bottom: auto;
-    }
-
-    #timeline-thumb {
-        top: 8px;
-        left: 0;
-        transform: translate(-50%, -50%);
-    }
-
-    #timeline-markers {
-        height: 100%;
-        width: 100%;
-    }
-
-    .timeline-marker {
-        top: 8px;
-        left: 0;
-        transform: translate(-50%, -50%);
-    }
-
-    .timeline-marker:hover {
-        transform: translate(-50%, -50%) scale(1.5);
-    }
-
-    .timeline-marker.active {
-        transform: translate(-50%, -50%) scale(1.3);
+        left: 60px;
     }
 
     #timeline-years {
-        top: 16px;
-        bottom: auto;
-        left: 0;
-        right: 0;
-        height: auto;
-    }
-
-    .timeline-year {
-        font-size: 8px;
-        top: auto;
-        left: 0;
-        transform: translateX(-50%);
-    }
-
-    #timeline-ticks {
-        display: block;
-        top: 4px;
-        left: 0;
-        right: 0;
-        bottom: auto;
-        width: 100%;
-        height: 6px;
-    }
-
-    .timeline-tick {
-        top: 0;
-        left: 0;
-        bottom: 0;
-        width: var(--timeline-track-width);
-        height: 100%;
-        transform: translateX(-50%);
+        left: 68px;
+        width: 72px;
     }
 
     #timeline-labels {
-        display: none;
+        width: 52px;
+    }
+
+    .timeline-year {
+        font-size: 9px;
+    }
+
+    .timeline-label {
+        font-size: 9px;
     }
 
     #current-date-display {

@@ -72,6 +72,26 @@ const TIME_CONFIG = {
 };
 
 // ========================================================================
+// WAVE EFFECT CONFIGURATION
+// ========================================================================
+const WAVE_CONFIG = {
+    SELECTED_WIDTH: 48,      // Desktop selected line width
+    NORMAL_WIDTH: 4,         // Base line width
+    WAVE_RADIUS: 240,        // Distance from center (pixels)
+    CURVE_POWER: 2,          // Gaussian sharpness
+
+    // Mobile overrides
+    MOBILE: {
+        SELECTED_WIDTH: 36,
+        WAVE_RADIUS: 180,
+    },
+
+    // Performance
+    UPDATE_THRESHOLD: 5,     // Min pixel movement to recalculate
+    LAST_VIEWPORT_CENTER: 0, // Cache for viewport center
+};
+
+// ========================================================================
 // INITIALIZATION
 // ========================================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -139,7 +159,6 @@ function createMapApp(locationData) {
         timelineThumb: document.getElementById('timeline-thumb'),
         timelineMarkers: document.getElementById('timeline-markers'),
         timelineLabels: document.getElementById('timeline-labels'),
-        timelineTicks: document.getElementById('timeline-ticks'),
         timelineYears: document.getElementById('timeline-years'),
     };
 
@@ -153,6 +172,7 @@ function createMapApp(locationData) {
     // Time Machine state
     let currentScrollDate = new Date(realNow); // Start at present
     let animationFrameId = null;
+    let isProgrammaticScroll = false; // Track if scroll is programmatic
     // Button pool for overlay accessibility
     let buttonPool = [];
 
@@ -343,8 +363,11 @@ function createMapApp(locationData) {
 
     const scrollToPresent = () => {
         requestAnimationFrame(() => {
+            isProgrammaticScroll = true;
             DOM.scrollContainer.scrollTop = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
             currentScrollDate = new Date(realNow);
+            // Reset flag after a short delay to allow scroll event to fire
+            setTimeout(() => { isProgrammaticScroll = false; }, 100);
         });
     };
 
@@ -621,7 +644,94 @@ function createMapApp(locationData) {
     // TIME MACHINE UI
     // ====================================================================
     const updateDateDisplay = () => {
-        DOM.currentYear.textContent = isAtPresent(currentScrollDate) ? 'Now' : currentScrollDate.getFullYear();
+        // Birth date
+        const birthDate = locationData[0].startDate; // September 19, 1985
+
+        // Find current location based on scroll date
+        let currentLocation = null;
+        for (const location of locationData) {
+            const locEndDate = location.endDate || realNow;
+            if (currentScrollDate >= location.startDate && currentScrollDate <= locEndDate) {
+                currentLocation = location;
+                break;
+            }
+        }
+
+        // Format year part
+        const yearText = isAtPresent(currentScrollDate) ? 'Now' : currentScrollDate.getFullYear();
+
+        // Display format: "Year, Location"
+        if (currentLocation) {
+            // Currently at a location
+            DOM.currentYear.textContent = `${yearText}, ${currentLocation.city}`;
+        } else if (currentScrollDate < birthDate) {
+            // Before birth - add a joke
+            DOM.currentYear.textContent = `${yearText}, In the void`;
+        } else {
+            // Between locations - shouldn't happen often, but show last known location
+            // Find the most recent location before current date
+            let lastLocation = null;
+            for (const location of locationData) {
+                if (location.startDate <= currentScrollDate) {
+                    lastLocation = location;
+                } else {
+                    break;
+                }
+            }
+            if (lastLocation) {
+                DOM.currentYear.textContent = `${yearText}, ${lastLocation.city}`;
+            } else {
+                DOM.currentYear.textContent = `${yearText}, Somewhere`;
+            }
+        }
+    };
+
+    // ====================================================================
+    // WAVE EFFECT UTILITIES
+    // ====================================================================
+    /**
+     * Calculate line width based on distance from viewport center
+     * using Gaussian (bell curve) distribution
+     */
+    const calculateWaveWidth = (distanceFromCenter) => {
+        const config = isMobile() ? {
+            selected: WAVE_CONFIG.MOBILE.SELECTED_WIDTH,
+            radius: WAVE_CONFIG.MOBILE.WAVE_RADIUS,
+        } : {
+            selected: WAVE_CONFIG.SELECTED_WIDTH,
+            radius: WAVE_CONFIG.WAVE_RADIUS,
+        };
+
+        // Gaussian curve: e^(-(x/r)^2)
+        const normalized = distanceFromCenter / config.radius;
+        const gaussian = Math.exp(-Math.pow(normalized, WAVE_CONFIG.CURVE_POWER));
+
+        // Scale from normal to selected width
+        return WAVE_CONFIG.NORMAL_WIDTH +
+               (config.selected - WAVE_CONFIG.NORMAL_WIDTH) * gaussian;
+    };
+
+    /**
+     * Calculate opacity for labels based on wave position
+     * Labels near selected area are brighter
+     */
+    const calculateWaveOpacity = (distanceFromCenter) => {
+        const radius = isMobile() ?
+            WAVE_CONFIG.MOBILE.WAVE_RADIUS :
+            WAVE_CONFIG.WAVE_RADIUS;
+
+        const normalized = Math.min(1, Math.abs(distanceFromCenter) / radius);
+        // Map from [0, 1] to [1.0, 0.4]
+        return 1.0 - (normalized * 0.6);
+    };
+
+    /**
+     * Get current viewport center position in timeline coordinates
+     */
+    const getViewportCenter = () => {
+        const timelineRect = DOM.timeline.getBoundingClientRect();
+        const viewportCenter = window.innerHeight / 2;
+        return viewportCenter - timelineRect.top;
     };
 
     const initTimeline = () => {
@@ -641,28 +751,11 @@ function createMapApp(locationData) {
             return (dateMs / totalMs) * 100;
         };
 
-        // Helper to set position based on orientation
+        // Helper to set position (always vertical now)
         const setPosition = (el, position) => {
-            if (mobile) {
-                el.style.left = `${position}%`;
-                el.style.top = '';
-            } else {
-                el.style.top = `${position}%`;
-                el.style.left = '';
-            }
+            el.style.top = `${position}%`;
+            el.dataset.position = position; // Store for wave effect
         };
-
-        // Create year tick marks (only for labeled years)
-        DOM.timelineTicks.innerHTML = '';
-        yearsToShow.forEach(year => {
-            if (year > TIME_CONFIG.END_YEAR) return;
-            const tick = document.createElement('div');
-            tick.className = 'timeline-tick';
-            tick.dataset.year = year;
-            const position = getPosition(new Date(year, 0, 1));
-            setPosition(tick, position);
-            DOM.timelineTicks.appendChild(tick);
-        });
 
         // Create year labels
         DOM.timelineYears.innerHTML = '';
@@ -680,10 +773,12 @@ function createMapApp(locationData) {
             yearEl.addEventListener('click', () => {
                 const targetDate = new Date(year, 0, 1);
                 const targetScroll = dateToScroll(targetDate);
+                isProgrammaticScroll = true;
                 DOM.scrollContainer.scrollTo({
                     top: targetScroll,
                     behavior: 'smooth'
                 });
+                setTimeout(() => { isProgrammaticScroll = false; }, 500);
             });
 
             DOM.timelineYears.appendChild(yearEl);
@@ -704,10 +799,12 @@ function createMapApp(locationData) {
 
             marker.addEventListener('click', () => {
                 const targetScroll = dateToScroll(location.startDate);
+                isProgrammaticScroll = true;
                 DOM.scrollContainer.scrollTo({
                     top: targetScroll,
                     behavior: 'smooth'
                 });
+                setTimeout(() => { isProgrammaticScroll = false; }, 500);
             });
 
             DOM.timelineMarkers.appendChild(marker);
@@ -720,6 +817,9 @@ function createMapApp(locationData) {
             setPosition(label, position);
             DOM.timelineLabels.appendChild(label);
         });
+
+        // Initialize wave effect
+        updateWaveEffect();
     };
 
     const updateTimeline = () => {
@@ -728,31 +828,16 @@ function createMapApp(locationData) {
         const totalMs = endDate.getTime() - startDate.getTime();
         const currentMs = Math.max(startDate.getTime(), Math.min(endDate.getTime(), currentScrollDate.getTime()));
         const progress = (currentMs - startDate.getTime()) / totalMs;
-        const mobile = isMobile();
 
-        // Update progress bar and thumb position
-        if (mobile) {
-            DOM.timelineProgress.style.width = `${progress * 100}%`;
-            DOM.timelineProgress.style.height = '100%';
-            DOM.timelineThumb.style.left = `${progress * 100}%`;
-            DOM.timelineThumb.style.top = '50%';
-        } else {
-            DOM.timelineProgress.style.height = `${progress * 100}%`;
-            DOM.timelineProgress.style.width = '';
-            DOM.timelineThumb.style.top = `${progress * 100}%`;
-            DOM.timelineThumb.style.left = '';
-        }
+        // Update progress bar and thumb position (always vertical now)
+        DOM.timelineProgress.style.height = `${progress * 100}%`;
+        DOM.timelineThumb.style.top = `${progress * 100}%`;
 
-        // Update year label and tick highlights (past = dark)
+        // Update year label highlights (past = dark)
         const currentYear = currentScrollDate.getFullYear();
         DOM.timelineYears.querySelectorAll('.timeline-year').forEach(yearEl => {
             const year = parseInt(yearEl.dataset.year);
             yearEl.classList.toggle('past', year <= currentYear);
-        });
-
-        DOM.timelineTicks.querySelectorAll('.timeline-tick').forEach(tick => {
-            const year = parseInt(tick.dataset.year);
-            tick.classList.toggle('past', year <= currentYear);
         });
 
         // Update marker and label highlights
@@ -776,6 +861,73 @@ function createMapApp(locationData) {
         });
     };
 
+    /**
+     * Update wave effect for all timeline elements
+     * Called on scroll with RAF throttling
+     */
+    const updateWaveEffect = () => {
+        const viewportCenter = getViewportCenter();
+
+        // Performance: skip if viewport hasn't moved enough
+        if (Math.abs(viewportCenter - WAVE_CONFIG.LAST_VIEWPORT_CENTER) <
+            WAVE_CONFIG.UPDATE_THRESHOLD) {
+            return;
+        }
+
+        WAVE_CONFIG.LAST_VIEWPORT_CENTER = viewportCenter;
+        const timelineRect = DOM.timeline.getBoundingClientRect();
+        const timelineHeight = timelineRect.height;
+
+        // Update year labels (opacity only)
+        DOM.timelineYears.querySelectorAll('.timeline-year').forEach(year => {
+            const position = parseFloat(year.dataset.position);
+            const elementTop = (position / 100) * timelineHeight;
+            const distance = Math.abs(elementTop - viewportCenter);
+            year.style.opacity = calculateWaveOpacity(distance);
+        });
+
+        // Update city labels (opacity only)
+        DOM.timelineLabels.querySelectorAll('.timeline-label').forEach(label => {
+            const position = parseFloat(label.dataset.position);
+            const elementTop = (position / 100) * timelineHeight;
+            const distance = Math.abs(elementTop - viewportCenter);
+            label.style.opacity = calculateWaveOpacity(distance);
+        });
+
+        // Update thumb (scale with wave if not dragging)
+        if (!DOM.timelineThumb.classList.contains('dragging')) {
+            const thumbPosition = parseFloat(DOM.timelineThumb.style.top);
+            const thumbTop = (thumbPosition / 100) * timelineHeight;
+            const distance = Math.abs(thumbTop - viewportCenter);
+            const opacity = calculateWaveOpacity(distance);
+            const scale = 1.0 + (opacity - 0.4) * 0.67;
+
+            DOM.timelineThumb.style.transform =
+                `translate(-50%, -50%) scale(${scale})`;
+        }
+    };
+
+    /**
+     * Reveal timeline lines on first scroll
+     */
+    const revealTimelineLines = () => {
+        if (DOM.timeline.dataset.revealed === 'true') return;
+        DOM.timeline.dataset.revealed = 'true';
+
+        // Haptic feedback removed - Chrome blocks navigator.vibrate()
+        // in scroll events even for user-initiated scrolls
+    };
+
+    /**
+     * Check if user has scrolled from initial position
+     */
+    const hasScrolled = () => {
+        const scrollTop = DOM.scrollContainer.scrollTop;
+        const maxScroll = DOM.scrollContainer.scrollHeight -
+                         DOM.scrollContainer.clientHeight;
+        return scrollTop > 5 && scrollTop < maxScroll - 5;
+    };
+
     const initTimelineDrag = () => {
         let isDragging = false;
 
@@ -796,7 +948,9 @@ function createMapApp(locationData) {
             const totalMs = endDate.getTime() - startDate.getTime();
             const targetDate = new Date(startDate.getTime() + progress * totalMs);
             const targetScroll = dateToScroll(targetDate);
+            isProgrammaticScroll = true;
             DOM.scrollContainer.scrollTop = targetScroll;
+            setTimeout(() => { isProgrammaticScroll = false; }, 100);
         };
 
         // Mouse events for thumb
@@ -909,6 +1063,11 @@ function createMapApp(locationData) {
         animationFrameId = requestAnimationFrame(() => {
             currentScrollDate = scrollToDate(DOM.scrollContainer.scrollTop);
 
+            // Reveal lines on first scroll
+            if (hasScrolled()) {
+                revealTimelineLines();
+            }
+
             // Simple pipeline: filter → compute → render
             const visible = getVisibleLocations(currentScrollDate);
             const computed = computeLocationData(visible, currentScrollDate);
@@ -917,6 +1076,7 @@ function createMapApp(locationData) {
 
             updateDateDisplay();
             updateTimeline();
+            updateWaveEffect(); // Add wave effect update
         });
     };
 
@@ -951,12 +1111,15 @@ function createMapApp(locationData) {
                 updateScrollHeight();
                 // Restore scroll position based on saved date
                 requestAnimationFrame(() => {
+                    isProgrammaticScroll = true;
                     DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
                     currentScrollDate = savedDate;
+                    setTimeout(() => { isProgrammaticScroll = false; }, 100);
                 });
                 resizeCanvas();
                 initTimeline(); // Reinit for mobile/desktop switch
                 updateTimeline();
+                updateWaveEffect(); // Add wave effect update
             });
         }, CONFIG.DEBOUNCE_DELAY);
 
@@ -969,7 +1132,9 @@ function createMapApp(locationData) {
                     const savedDate = new Date(currentScrollDate.getTime());
                     updateScrollHeight();
                     requestAnimationFrame(() => {
+                        isProgrammaticScroll = true;
                         DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
+                        setTimeout(() => { isProgrammaticScroll = false; }, 100);
                     });
                     resizeCanvas();
                     initTimeline(); // Reinit for orientation switch
