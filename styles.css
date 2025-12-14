@@ -260,7 +260,7 @@ footer a:focus {
     border-radius: 6px;
     padding: 6px 10px;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: 11px;
     color: var(--color-text);
     box-shadow: var(--shadow-sm);
     z-index: 50;
@@ -268,16 +268,16 @@ footer a:focus {
 }
 
 #current-year {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: 400;
 }
 
 /* Timeline - Universal Vertical Design */
 #timeline {
     position: absolute;
-    top: 20px;
+    top: 10px;
     right: 12px;
-    bottom: 20px;
+    bottom: 10px;
     width: 156px;
     display: flex;
     flex-direction: column;
@@ -292,8 +292,8 @@ footer a:focus {
 
 #timeline-track {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 10px;
+    bottom: 10px;
     left: 108px;
     width: var(--timeline-track-width);
     background: var(--timeline-color);
@@ -307,7 +307,6 @@ footer a:focus {
     right: 0;
     background: var(--timeline-color-active);
     border-radius: 1px;
-    transition: height 0.1s ease-out;
 }
 
 #timeline-thumb {
@@ -340,8 +339,8 @@ footer a:focus {
 /* Timeline Lines - Scroll Reveal */
 #timeline-lines {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 10px;
+    bottom: 10px;
     left: 0;
     right: 0;
     opacity: 0;
@@ -392,8 +391,8 @@ footer a:focus {
 /* Timeline Year Labels */
 #timeline-years {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 10px;
+    bottom: 10px;
     left: 116px;
     width: 40px;
 }
@@ -402,29 +401,23 @@ footer a:focus {
     position: absolute;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--color-text-muted);
+    color: var(--color-text);
     text-align: left;
     transform: translateY(-50%);
     white-space: nowrap;
     opacity: 0.4;
-    transition: opacity 0.2s ease, color 0.2s ease;
     cursor: pointer;
 }
 
 .timeline-year:hover {
     opacity: 1;
-    color: var(--color-text);
-}
-
-.timeline-year.past {
-    color: var(--color-text);
 }
 
 /* Timeline City Labels */
 #timeline-labels {
     position: absolute;
-    top: 0;
-    bottom: 0;
+    top: 10px;
+    bottom: 10px;
     left: 0;
     width: 100px;
     text-align: right;
@@ -436,16 +429,11 @@ footer a:focus {
     right: 0;
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--color-text-muted);
+    color: var(--color-text);
     white-space: nowrap;
     text-align: right;
     transform: translateY(-50%);
     opacity: 0.4;
-    transition: opacity 0.2s ease, color 0.2s ease;
-}
-
-.timeline-label.visible {
-    color: var(--color-text);
 }
 
 @media (max-width: 768px) {
@@ -500,6 +488,6 @@ footer a:focus {
     }
 
     #current-year {
-        font-size: 14px;
+        font-size: 9px;
     }
 }

@@ -837,14 +837,34 @@ function createMapApp(locationData) {
         DOM.timelineProgress.style.height = `${progress * 100}%`;
         DOM.timelineThumb.style.top = `${progress * 100}%`;
 
-        // Update year label highlights (past = dark)
-        const currentYear = currentScrollDate.getFullYear();
+        // Update year labels: past = brighter, future = darker
         DOM.timelineYears.querySelectorAll('.timeline-year').forEach(yearEl => {
             const year = parseInt(yearEl.dataset.year);
-            yearEl.classList.toggle('past', year <= currentYear);
+            const yearDate = new Date(year, 0, 1);
+
+            if (yearDate < currentScrollDate) {
+                // Past: brighter (full opacity)
+                yearEl.style.opacity = '1.0';
+            } else {
+                // Future: darker (low opacity)
+                yearEl.style.opacity = '0.3';
+            }
         });
 
-        // Update marker and label highlights
+        // Update place labels: past = brighter, future = darker
+        DOM.timelineLabels.querySelectorAll('.timeline-label').forEach((label, index) => {
+            const location = locationData[index];
+
+            if (location.startDate < currentScrollDate) {
+                // Past: brighter (full opacity)
+                label.style.opacity = '1.0';
+            } else {
+                // Future: darker (low opacity)
+                label.style.opacity = '0.3';
+            }
+        });
+
+        // Update marker highlights
         // "visible" = location has started (black)
         // "active" = currently at this location (black + scaled)
         DOM.timelineMarkers.querySelectorAll('.timeline-marker').forEach((marker, index) => {
@@ -855,13 +875,6 @@ function createMapApp(locationData) {
 
             marker.classList.toggle('visible', isVisible && !isActive);
             marker.classList.toggle('active', isActive);
-        });
-
-        DOM.timelineLabels.querySelectorAll('.timeline-label').forEach((label, index) => {
-            const location = locationData[index];
-            const isVisible = currentScrollDate >= location.startDate;
-
-            label.classList.toggle('visible', isVisible);
         });
     };
 
@@ -890,13 +903,7 @@ function createMapApp(locationData) {
             year.style.opacity = calculateWaveOpacity(distance);
         });
 
-        // Update city labels (opacity only)
-        DOM.timelineLabels.querySelectorAll('.timeline-label').forEach(label => {
-            const position = parseFloat(label.dataset.position);
-            const elementTop = (position / 100) * timelineHeight;
-            const distance = Math.abs(elementTop - viewportCenter);
-            label.style.opacity = calculateWaveOpacity(distance);
-        });
+        // City labels stay at constant opacity (no wave effect)
 
         // Update thumb (scale with wave if not dragging)
         if (!DOM.timelineThumb.classList.contains('dragging')) {
