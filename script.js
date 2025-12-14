@@ -404,6 +404,17 @@ function createMapApp(locationData) {
         projection = createProjection(DOM.canvas.width, DOM.canvas.height);
         path = d3.geoPath().projection(projection).context(ctx);
 
+        // On mobile, set timeline height to match map container
+        if (isMobile()) {
+            const mapRect = DOM.container.getBoundingClientRect();
+            DOM.timeline.style.height = `${mapRect.height}px`;
+            DOM.timeline.style.top = `${mapRect.top}px`;
+        } else {
+            // Reset to CSS defaults on desktop
+            DOM.timeline.style.height = '';
+            DOM.timeline.style.top = '';
+        }
+
         drawMap();
     };
 

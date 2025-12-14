@@ -472,21 +472,22 @@ footer a:focus {
     }
 
     #timeline {
-        right: 8px;
-        width: 126px;
+        position: fixed;
+        right: 4px;
+        width: 20px;
+        /* height and top set dynamically via JS to match map container */
     }
 
     #timeline-track {
-        left: 80px;
+        left: 8px;
     }
 
     #timeline-years {
-        left: 88px;
-        width: 38px;
+        display: none;
     }
 
     #timeline-labels {
-        width: 72px;
+        display: none;
     }
 
     .timeline-year {
