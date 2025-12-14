@@ -173,6 +173,7 @@ function createMapApp(locationData) {
     let currentScrollDate = new Date(realNow); // Start at present
     let animationFrameId = null;
     let isProgrammaticScroll = false; // Track if scroll is programmatic
+    let hideLabelsTimeout = null; // Timer for hiding labels after scroll stops
     // Button pool for overlay accessibility
     let buttonPool = [];
 
@@ -735,6 +736,9 @@ function createMapApp(locationData) {
     };
 
     const initTimeline = () => {
+        // Initialize scrolling state
+        DOM.timeline.dataset.scrolling = 'false';
+
         // Generate years at 5-year intervals from START_YEAR to END_YEAR
         const yearsToShow = [];
         for (let year = TIME_CONFIG.START_YEAR; year <= TIME_CONFIG.END_YEAR; year += 5) {
@@ -919,6 +923,35 @@ function createMapApp(locationData) {
     };
 
     /**
+     * Show timeline labels (set active state)
+     */
+    const showTimelineLabels = () => {
+        DOM.timeline.dataset.scrolling = 'true';
+
+        // Clear any existing hide timer
+        if (hideLabelsTimeout) {
+            clearTimeout(hideLabelsTimeout);
+            hideLabelsTimeout = null;
+        }
+    };
+
+    /**
+     * Hide timeline labels after delay
+     */
+    const scheduleHideLabels = () => {
+        // Clear any existing timer
+        if (hideLabelsTimeout) {
+            clearTimeout(hideLabelsTimeout);
+        }
+
+        // Schedule hide after 1.5 seconds of no scrolling
+        hideLabelsTimeout = setTimeout(() => {
+            DOM.timeline.dataset.scrolling = 'false';
+            hideLabelsTimeout = null;
+        }, 1500);
+    };
+
+    /**
      * Check if user has scrolled from initial position
      */
     const hasScrolled = () => {
@@ -1066,6 +1099,8 @@ function createMapApp(locationData) {
             // Reveal lines on first scroll
             if (hasScrolled()) {
                 revealTimelineLines();
+                showTimelineLabels(); // Show labels while scrolling
+                scheduleHideLabels(); // Schedule hide after scroll stops
             }
 
             // Simple pipeline: filter → compute → render
