@@ -63,38 +63,145 @@ const locations = [
 const realNow = new Date(); // Actual current time (for "Now" label and pulse)
 
 // ========================================================================
-// TIME MACHINE CONFIGURATION
+// GLOBAL CONFIGURATION - Single source of truth
 // ========================================================================
-const TIME_CONFIG = {
-    START_YEAR: 1985,
-    END_YEAR: realNow.getFullYear(),
-    PIXELS_PER_YEAR: 150,
+const CONFIG = {
+    // Responsive breakpoints
+    BREAKPOINTS: {
+        MOBILE: 768
+    },
+
+    // Time Machine settings
+    TIME: {
+        START_YEAR: 1985,
+        END_YEAR: realNow.getFullYear(),
+        PIXELS_PER_YEAR: 150,
+        SCROLL_DELAY: 100,
+        SMOOTH_SCROLL_DELAY: 500,
+        LABEL_HIDE_DELAY: 1500,
+    },
+
+    // Map display settings
+    MAP: {
+        SCALE: { MOBILE: 3.5, DESKTOP: 6.5 },
+        BORDER_WIDTH: 0.8,
+    },
+
+    // Point styling
+    POINT: {
+        RADIUS_MIN: { MOBILE: 8, DESKTOP: 6 },
+        RADIUS_MAX: { MOBILE: 24, DESKTOP: 20 },
+        SHADOW_BLUR: 12,
+        SHADOW_OFFSET: 3,
+        BORDER_WIDTH: 1,
+    },
+
+    // Timeline fade effect configuration
+    TIMELINE_FADE: {
+        SELECTED_WIDTH: { MOBILE: 36, DESKTOP: 48 },
+        NORMAL_WIDTH: 4,
+        FADE_RADIUS: { MOBILE: 180, DESKTOP: 240 },
+        CURVE_POWER: 2,
+        UPDATE_THRESHOLD: 5,
+        LAST_VIEWPORT_CENTER: 0,
+    },
+
+    // Colors - synced with CSS variables
+    COLORS: {
+        // Canvas colors from CSS
+        COUNTRY: null, // Will be set from CSS
+        BORDER: null,  // Will be set from CSS
+        TEXT_NUMBER: null, // Will be set from CSS
+        // Point color interpolation
+        BG_INTERPOLATION: {
+            START: [28, 25, 23],
+            END: [240, 240, 240]
+        },
+        BORDER_INTERPOLATION: {
+            START: [245, 245, 244],
+            END: [170, 170, 170]
+        },
+        OPACITY: { MIN: 0.4, MAX: 1.0 },
+    },
+
+    // General settings
+    DEBOUNCE_DELAY: 100,
 };
 
 // ========================================================================
-// WAVE EFFECT CONFIGURATION
+// UTILITIES
 // ========================================================================
-const WAVE_CONFIG = {
-    SELECTED_WIDTH: 48,      // Desktop selected line width
-    NORMAL_WIDTH: 4,         // Base line width
-    WAVE_RADIUS: 240,        // Distance from center (pixels)
-    CURVE_POWER: 2,          // Gaussian sharpness
 
-    // Mobile overrides
-    MOBILE: {
-        SELECTED_WIDTH: 36,
-        WAVE_RADIUS: 180,
+// Helper to read CSS variables
+const getCSSVar = (varName) => {
+    return getComputedStyle(document.documentElement)
+        .getPropertyValue(varName).trim();
+};
+
+// Check if mobile viewport
+const isMobile = () => window.innerWidth <= CONFIG.BREAKPOINTS.MOBILE;
+
+// Debounce utility
+const debounce = (func, delay) => {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => func(...args), delay);
+    };
+};
+
+// Date utilities - consolidated
+const DateUtils = {
+    format: (date) => {
+        const d = date instanceof Date ? date : new Date(date);
+        return d.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short'
+        });
     },
 
-    // Performance
-    UPDATE_THRESHOLD: 5,     // Min pixel movement to recalculate
-    LAST_VIEWPORT_CENTER: 0, // Cache for viewport center
+    getDurationDays: (start, end, now = new Date()) => {
+        const parseDate = (d) => d instanceof Date ? d : (d ? new Date(d) : now);
+        const startDate = parseDate(start);
+        const endDate = parseDate(end);
+        return Math.ceil(Math.abs(endDate - startDate) / (1000 * 60 * 60 * 24));
+    },
+
+    formatDuration: (start, end, now = new Date()) => {
+        const days = DateUtils.getDurationDays(start, end, now);
+        const years = Math.floor(days / 365);
+        const months = Math.floor((days % 365) / 30);
+
+        if (years === 0 && months === 0) {
+            return days === 1 ? '1 day' : `${days} days`;
+        }
+
+        return [
+            years > 0 ? `${years} year${years > 1 ? 's' : ''}` : '',
+            months > 0 ? `${months} month${months > 1 ? 's' : ''}` : ''
+        ].filter(Boolean).join(' ');
+    }
+};
+
+// Color interpolation utility
+const ColorInterpolator = {
+    create: (startRGB, endRGB, power = 0.5) => (age) => {
+        const t = Math.pow(age, power);
+        const r = Math.round(startRGB[0] + t * (endRGB[0] - startRGB[0]));
+        const g = Math.round(startRGB[1] + t * (endRGB[1] - startRGB[1]));
+        const b = Math.round(startRGB[2] + t * (endRGB[2] - startRGB[2]));
+        return `rgb(${r}, ${g}, ${b})`;
+    }
 };
 
 // ========================================================================
 // INITIALIZATION
 // ========================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize colors from CSS
+    CONFIG.COLORS.COUNTRY = getCSSVar('--color-canvas-country');
+    CONFIG.COLORS.BORDER = getCSSVar('--color-canvas-border');
+    CONFIG.COLORS.TEXT_NUMBER = getCSSVar('--color-canvas-text');
     const mapApp = createMapApp(locations);
     mapApp.init();
 
@@ -113,30 +220,6 @@ document.addEventListener('DOMContentLoaded', () => {
 // MAP APPLICATION FACTORY
 // ========================================================================
 function createMapApp(locationData) {
-    // ====================================================================
-    // CONFIGURATION
-    // ====================================================================
-    const CONFIG = {
-        MOBILE_BREAKPOINT: 768,
-        MAP_SCALE: {
-            MOBILE: 3.5,
-            DESKTOP: 6.5
-        },
-        POINT_RADIUS: {
-            MIN: { MOBILE: 8, DESKTOP: 6 },
-            MAX: { MOBILE: 24, DESKTOP: 20 }
-        },
-        POINT_SHADOW_BLUR: 12,
-        POINT_SHADOW_OFFSET: 3,
-        POINT_BORDER_WIDTH: 1,
-        MAP_BORDER_WIDTH: 0.8,
-        DEBOUNCE_DELAY: 100,
-        COLORS: {
-            COUNTRIES: '#f8f8f7',
-            BORDERS: '#a8a29e',
-            TEXT_NUMBER: '#ffffff'
-        }
-    };
 
     // ====================================================================
     // DOM ELEMENTS
@@ -152,7 +235,6 @@ function createMapApp(locationData) {
         scrollSpacer: document.getElementById('time-scroll-spacer'),
         mapViewport: document.getElementById('map-viewport'),
         currentDateDisplay: document.getElementById('current-date-display'),
-        currentYear: document.getElementById('current-year'),
         timeline: document.getElementById('timeline'),
         timelineTrack: document.getElementById('timeline-track'),
         timelineProgress: document.getElementById('timeline-progress'),
@@ -176,50 +258,13 @@ function createMapApp(locationData) {
     let hideLabelsTimeout = null; // Timer for hiding labels after scroll stops
     // Button pool for overlay accessibility
     let buttonPool = [];
-
-    // ====================================================================
-    // UTILITIES
-    // ====================================================================
-    const debounce = (func, delay) => {
-        let timeoutId;
-        return (...args) => {
-            clearTimeout(timeoutId);
-            timeoutId = setTimeout(() => func(...args), delay);
-        };
+    // Timeline element cache
+    let timelineElementsCache = {
+        years: [],
+        labels: [],
+        markers: []
     };
 
-    const isMobile = () => window.innerWidth <= CONFIG.MOBILE_BREAKPOINT;
-
-    const formatDate = date => {
-        const d = date instanceof Date ? date : new Date(date);
-        return d.toLocaleDateString('en-US', {
-            year: 'numeric',
-            month: 'short'
-        });
-    };
-
-    const getDurationDays = (start, end, now) => {
-        const parseDate = d => d instanceof Date ? d : (d ? new Date(d) : now);
-        const startDate = parseDate(start);
-        const endDate = parseDate(end);
-        const diff = Math.abs(endDate - startDate);
-        return Math.ceil(diff / (1000 * 60 * 60 * 24));
-    };
-
-    const formatDuration = (start, end, now) => {
-        const days = getDurationDays(start, end, now);
-        const years = Math.floor(days / 365);
-        const months = Math.floor((days % 365) / 30);
-
-        if (years === 0 && months === 0) {
-            return days === 1 ? '1 day' : `${days} days`;
-        }
-
-        return [
-            years > 0 ? `${years} year${years > 1 ? 's' : ''}` : '',
-            months > 0 ? `${months} month${months > 1 ? 's' : ''}` : ''
-        ].filter(Boolean).join(' ');
-    };
 
     // ====================================================================
     // DATA PIPELINE
@@ -238,8 +283,8 @@ function createMapApp(locationData) {
         if (!projection || visibleLocations.length === 0) return [];
 
         const dpr = window.devicePixelRatio || 1;
-        const minRadius = isMobile() ? CONFIG.POINT_RADIUS.MIN.MOBILE : CONFIG.POINT_RADIUS.MIN.DESKTOP;
-        const maxRadius = isMobile() ? CONFIG.POINT_RADIUS.MAX.MOBILE : CONFIG.POINT_RADIUS.MAX.DESKTOP;
+        const minRadius = isMobile() ? CONFIG.POINT.RADIUS_MIN.MOBILE : CONFIG.POINT.RADIUS_MIN.DESKTOP;
+        const maxRadius = isMobile() ? CONFIG.POINT.RADIUS_MAX.MOBILE : CONFIG.POINT.RADIUS_MAX.DESKTOP;
 
         // For each location, calculate the "effective end" at current scroll position
         // This is min(endDate, now) - so duration grows smoothly as you scroll
@@ -251,14 +296,14 @@ function createMapApp(locationData) {
 
         // Compute durations using effective ends
         const durations = visibleLocations.map((loc, i) =>
-            getDurationDays(loc.startDate, effectiveEnds[i], effectiveEnds[i])
+            DateUtils.getDurationDays(loc.startDate, effectiveEnds[i], effectiveEnds[i])
         );
 
         // Use SQRT scale for better visual distribution
         // Linear scale makes small durations invisible (21 days vs 7317 days)
         // Sqrt compresses the range so small values are more visible
         // Use realNow (not scroll date) so scale is FIXED - scrolling back shrinks all points
-        const maxPossibleDuration = getDurationDays(locationData[0].startDate, realNow, realNow);
+        const maxPossibleDuration = DateUtils.getDurationDays(locationData[0].startDate, realNow, realNow);
         const radiusScale = d3.scaleSqrt(
             [0, maxPossibleDuration],
             [minRadius, maxRadius]
@@ -280,28 +325,34 @@ function createMapApp(locationData) {
             return Math.max(0, Math.min(1, timeSinceEnd / maxAge));
         };
 
+        // Create color interpolators using utility
+        const bgColorInterpolator = ColorInterpolator.create(
+            CONFIG.COLORS.BG_INTERPOLATION.START,
+            CONFIG.COLORS.BG_INTERPOLATION.END,
+            0.5
+        );
+
+        const borderColorInterpolator = ColorInterpolator.create(
+            CONFIG.COLORS.BORDER_INTERPOLATION.START,
+            CONFIG.COLORS.BORDER_INTERPOLATION.END,
+            0.5
+        );
+
+        // Color scale functions that use age
         const bgColorScale = (effectiveEnd) => {
             const age = getLocationAge(effectiveEnd);
-            const t = Math.pow(age, 0.5); // sqrt to expand light end (more contrast for old)
-            // Current (age=0) = dark, old (age=1) = light
-            const r = Math.round(28 + t * (240 - 28));
-            const g = Math.round(25 + t * (240 - 25));
-            const b = Math.round(23 + t * (240 - 23));
-            return `rgb(${r}, ${g}, ${b})`;
+            return bgColorInterpolator(age);
         };
+
         const borderColorScale = (effectiveEnd) => {
             const age = getLocationAge(effectiveEnd);
-            const t = Math.pow(age, 0.5);
-            // Current = light border, old = dark border
-            const r = Math.round(245 - t * (245 - 170));
-            const g = Math.round(245 - t * (245 - 170));
-            const b = Math.round(244 - t * (244 - 170));
-            return `rgb(${r}, ${g}, ${b})`;
+            return borderColorInterpolator(age);
         };
+
         // Opacity: current location = full opacity, old = faded
         const getOpacity = (effectiveEnd) => {
             const age = getLocationAge(effectiveEnd);
-            return 1 - (age * 0.6); // 1.0 for current, 0.4 for oldest
+            return CONFIG.COLORS.OPACITY.MAX - (age * (CONFIG.COLORS.OPACITY.MAX - CONFIG.COLORS.OPACITY.MIN));
         };
 
         return visibleLocations.map((loc, i) => {
@@ -336,8 +387,8 @@ function createMapApp(locationData) {
         if (maxScroll <= 0) return new Date(realNow);
 
         const scrollProgress = Math.max(0, Math.min(1, scrollTop / maxScroll));
-        const startDate = new Date(TIME_CONFIG.START_YEAR, 0, 1);
-        const endDate = new Date(TIME_CONFIG.END_YEAR, 11, 31);
+        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
+        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
         const totalMs = endDate.getTime() - startDate.getTime();
         const currentMs = startDate.getTime() + (scrollProgress * totalMs);
 
@@ -345,8 +396,8 @@ function createMapApp(locationData) {
     };
 
     const dateToScroll = (date) => {
-        const startDate = new Date(TIME_CONFIG.START_YEAR, 0, 1);
-        const endDate = new Date(TIME_CONFIG.END_YEAR, 11, 31);
+        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
+        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
         const totalMs = endDate.getTime() - startDate.getTime();
         const dateMs = Math.max(startDate.getTime(), Math.min(endDate.getTime(), date.getTime()));
         const progress = (dateMs - startDate.getTime()) / totalMs;
@@ -357,18 +408,23 @@ function createMapApp(locationData) {
 
     const updateScrollHeight = () => {
         const viewportHeight = DOM.timeMachineWrapper.clientHeight;
-        const totalYears = TIME_CONFIG.END_YEAR - TIME_CONFIG.START_YEAR;
-        const height = viewportHeight + (totalYears * TIME_CONFIG.PIXELS_PER_YEAR);
+        const totalYears = CONFIG.TIME.END_YEAR - CONFIG.TIME.START_YEAR;
+        const height = viewportHeight + (totalYears * CONFIG.TIME.PIXELS_PER_YEAR);
         DOM.scrollSpacer.style.height = `${height}px`;
+    };
+
+    const withProgrammaticScroll = (action, delay = CONFIG.TIME.SCROLL_DELAY) => {
+        isProgrammaticScroll = true;
+        action();
+        setTimeout(() => { isProgrammaticScroll = false; }, delay);
     };
 
     const scrollToPresent = () => {
         requestAnimationFrame(() => {
-            isProgrammaticScroll = true;
-            DOM.scrollContainer.scrollTop = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
-            currentScrollDate = new Date(realNow);
-            // Reset flag after a short delay to allow scroll event to fire
-            setTimeout(() => { isProgrammaticScroll = false; }, 100);
+            withProgrammaticScroll(() => {
+                DOM.scrollContainer.scrollTop = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
+                currentScrollDate = new Date(realNow);
+            });
         });
     };
 
@@ -382,7 +438,7 @@ function createMapApp(locationData) {
         const centerLon = (Math.min(...longitudes) + Math.max(...longitudes)) / 2;
         const centerLat = (Math.min(...latitudes) + Math.max(...latitudes)) / 2;
 
-        const scaleFactor = isMobile() ? CONFIG.MAP_SCALE.MOBILE : CONFIG.MAP_SCALE.DESKTOP;
+        const scaleFactor = isMobile() ? CONFIG.MAP.SCALE.MOBILE : CONFIG.MAP.SCALE.DESKTOP;
 
         return d3.geoMercator()
             .center([centerLon, centerLat])
@@ -421,6 +477,16 @@ function createMapApp(locationData) {
     // ====================================================================
     // BUTTON POOL
     // ====================================================================
+    const showButtonTooltip = (btn) => {
+        const rect = btn.getBoundingClientRect();
+        showTooltip(
+            JSON.parse(btn.dataset.location),
+            rect.left + rect.width / 2,
+            rect.top + rect.height / 2,
+            parseFloat(btn.dataset.cssRadius)
+        );
+    };
+
     const createButton = () => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -438,20 +504,13 @@ function createMapApp(locationData) {
         });
 
         // Event handlers reference btn.dataset for current data
-        btn.addEventListener('focus', () => {
-            const rect = btn.getBoundingClientRect();
-            showTooltip(JSON.parse(btn.dataset.location), rect.left + rect.width / 2, rect.top + rect.height / 2, parseFloat(btn.dataset.cssRadius));
-        });
+        btn.addEventListener('focus', () => showButtonTooltip(btn));
         btn.addEventListener('blur', hideTooltip);
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            const rect = btn.getBoundingClientRect();
-            showTooltip(JSON.parse(btn.dataset.location), rect.left + rect.width / 2, rect.top + rect.height / 2, parseFloat(btn.dataset.cssRadius));
+            showButtonTooltip(btn);
         });
-        btn.addEventListener('mouseenter', () => {
-            const rect = btn.getBoundingClientRect();
-            showTooltip(JSON.parse(btn.dataset.location), rect.left + rect.width / 2, rect.top + rect.height / 2, parseFloat(btn.dataset.cssRadius));
-        });
+        btn.addEventListener('mouseenter', () => showButtonTooltip(btn));
         btn.addEventListener('mouseleave', hideTooltip);
 
         return btn;
@@ -460,11 +519,11 @@ function createMapApp(locationData) {
     const updateButton = (btn, data) => {
         const { location, cssX, cssY, radius, shouldPulse } = data;
         const dpr = window.devicePixelRatio || 1;
-        const cssRadius = radius + CONFIG.POINT_BORDER_WIDTH / dpr;
+        const cssRadius = radius + CONFIG.POINT.BORDER_WIDTH / dpr;
 
-        const startDateStr = formatDate(location.startDate);
-        const endDateStr = location.endDate ? formatDate(location.endDate) : 'Present';
-        const durationStr = formatDuration(location.startDate, location.endDate, currentScrollDate);
+        const startDateStr = DateUtils.format(location.startDate);
+        const endDateStr = location.endDate ? DateUtils.format(location.endDate) : 'Present';
+        const durationStr = DateUtils.formatDuration(location.startDate, location.endDate, currentScrollDate);
         const label = `${location.city}, ${location.country}. From ${startDateStr} to ${endDateStr} (${durationStr})`;
 
         btn.className = 'map-overlay-btn' + (shouldPulse ? ' i-am-here' : '');
@@ -474,7 +533,7 @@ function createMapApp(locationData) {
         btn.style.width = `${cssRadius * 2}px`;
         btn.style.height = `${cssRadius * 2}px`;
         btn.style.display = '';
-        btn.innerHTML = `<span>${label}</span>`;
+        btn.innerHTML = `<span class="sr-only">${label}</span>`;
 
         // Store data for event handlers
         btn.dataset.location = JSON.stringify(location);
@@ -513,14 +572,14 @@ function createMapApp(locationData) {
         // Draw countries
         ctx.beginPath();
         path(topojson.feature(cachedWorldData, cachedWorldData.objects.countries));
-        ctx.fillStyle = CONFIG.COLORS.COUNTRIES;
+        ctx.fillStyle = CONFIG.COLORS.COUNTRY;
         ctx.fill();
 
         // Draw borders
         ctx.beginPath();
         path(topojson.mesh(cachedWorldData, cachedWorldData.objects.countries));
-        ctx.strokeStyle = CONFIG.COLORS.BORDERS;
-        ctx.lineWidth = CONFIG.MAP_BORDER_WIDTH;
+        ctx.strokeStyle = CONFIG.COLORS.BORDER;
+        ctx.lineWidth = CONFIG.MAP.BORDER_WIDTH;
         ctx.stroke();
     };
 
@@ -532,16 +591,16 @@ function createMapApp(locationData) {
         ctx.save();
         ctx.globalAlpha = opacity;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-        ctx.shadowBlur = CONFIG.POINT_SHADOW_BLUR * dpr;
+        ctx.shadowBlur = CONFIG.POINT.SHADOW_BLUR * dpr;
         ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = CONFIG.POINT_SHADOW_OFFSET * dpr;
+        ctx.shadowOffsetY = CONFIG.POINT.SHADOW_OFFSET * dpr;
         ctx.beginPath();
         ctx.arc(x, y, radius * dpr, 0, 2 * Math.PI);
         ctx.fillStyle = backgroundColor;
         ctx.fill();
         ctx.shadowColor = 'transparent';
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth = CONFIG.POINT_BORDER_WIDTH * dpr;
+        ctx.lineWidth = CONFIG.POINT.BORDER_WIDTH * dpr;
         ctx.stroke();
         ctx.restore();
 
@@ -592,15 +651,15 @@ function createMapApp(locationData) {
         const effectiveEnd = endDate && endDate < now ? endDate : now;
         const hasEnded = endDate && endDate <= now;
 
-        const startDateStr = formatDate(startDate);
-        const endDateStr = hasEnded ? formatDate(endDate) : 'Present';
+        const startDateStr = DateUtils.format(startDate);
+        const endDateStr = hasEnded ? DateUtils.format(endDate) : 'Present';
 
         // Time spent: from start to effective end (respects scroll position)
-        const durationStr = formatDuration(startDate, effectiveEnd, now);
+        const durationStr = DateUtils.formatDuration(startDate, effectiveEnd, now);
 
         // Time passed: only if location ended before scroll position
         const distanceStr = hasEnded
-            ? formatDuration(endDate, now, now)
+            ? DateUtils.formatDuration(endDate, now, now)
             : 'Current';
 
         DOM.tooltip.innerHTML = `
@@ -675,10 +734,10 @@ function createMapApp(locationData) {
         // Display format: "Year, Location"
         if (currentLocation) {
             // Currently at a location
-            DOM.currentYear.textContent = `${yearText}, ${currentLocation.city}`;
+            DOM.currentDateDisplay.textContent = `${yearText}, ${currentLocation.city}`;
         } else if (currentScrollDate < birthDate) {
             // Before birth - add a joke
-            DOM.currentYear.textContent = `${yearText}, Undefined`;
+            DOM.currentDateDisplay.textContent = `${yearText}, Undefined`;
         } else {
             // Between locations - shouldn't happen often, but show last known location
             // Find the most recent location before current date
@@ -691,46 +750,24 @@ function createMapApp(locationData) {
                 }
             }
             if (lastLocation) {
-                DOM.currentYear.textContent = `${yearText}, ${lastLocation.city}`;
+                DOM.currentDateDisplay.textContent = `${yearText}, ${lastLocation.city}`;
             } else {
-                DOM.currentYear.textContent = `${yearText}, Somewhere`;
+                DOM.currentDateDisplay.textContent = `${yearText}, Somewhere`;
             }
         }
     };
 
     // ====================================================================
-    // WAVE EFFECT UTILITIES
+    // TIMELINE FADE EFFECT UTILITIES
     // ====================================================================
     /**
-     * Calculate line width based on distance from viewport center
-     * using Gaussian (bell curve) distribution
+     * Calculate opacity for timeline elements based on distance from viewport center
+     * Elements near viewport center are brighter (more visible)
      */
-    const calculateWaveWidth = (distanceFromCenter) => {
-        const config = isMobile() ? {
-            selected: WAVE_CONFIG.MOBILE.SELECTED_WIDTH,
-            radius: WAVE_CONFIG.MOBILE.WAVE_RADIUS,
-        } : {
-            selected: WAVE_CONFIG.SELECTED_WIDTH,
-            radius: WAVE_CONFIG.WAVE_RADIUS,
-        };
-
-        // Gaussian curve: e^(-(x/r)^2)
-        const normalized = distanceFromCenter / config.radius;
-        const gaussian = Math.exp(-Math.pow(normalized, WAVE_CONFIG.CURVE_POWER));
-
-        // Scale from normal to selected width
-        return WAVE_CONFIG.NORMAL_WIDTH +
-               (config.selected - WAVE_CONFIG.NORMAL_WIDTH) * gaussian;
-    };
-
-    /**
-     * Calculate opacity for labels based on wave position
-     * Labels near selected area are brighter
-     */
-    const calculateWaveOpacity = (distanceFromCenter) => {
+    const calculateTimelineOpacity = (distanceFromCenter) => {
         const radius = isMobile() ?
-            WAVE_CONFIG.MOBILE.WAVE_RADIUS :
-            WAVE_CONFIG.WAVE_RADIUS;
+            CONFIG.TIMELINE_FADE.FADE_RADIUS.MOBILE :
+            CONFIG.TIMELINE_FADE.FADE_RADIUS.DESKTOP;
 
         const normalized = Math.min(1, Math.abs(distanceFromCenter) / radius);
         // Map from [0, 1] to [1.0, 0.4]
@@ -752,11 +789,11 @@ function createMapApp(locationData) {
 
         // Generate years at 5-year intervals from START_YEAR to END_YEAR
         const yearsToShow = [];
-        for (let year = TIME_CONFIG.START_YEAR; year <= TIME_CONFIG.END_YEAR; year += 5) {
+        for (let year = CONFIG.TIME.START_YEAR; year <= CONFIG.TIME.END_YEAR; year += 5) {
             yearsToShow.push(year);
         }
-        const startDate = new Date(TIME_CONFIG.START_YEAR, 0, 1);
-        const endDate = new Date(TIME_CONFIG.END_YEAR, 11, 31);
+        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
+        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
         const totalMs = endDate.getTime() - startDate.getTime();
         const mobile = isMobile();
 
@@ -775,7 +812,7 @@ function createMapApp(locationData) {
         // Create year labels
         DOM.timelineYears.innerHTML = '';
         yearsToShow.forEach(year => {
-            if (year > TIME_CONFIG.END_YEAR) return;
+            if (year > CONFIG.TIME.END_YEAR) return;
 
             const yearEl = document.createElement('div');
             yearEl.className = 'timeline-year';
@@ -788,12 +825,12 @@ function createMapApp(locationData) {
             yearEl.addEventListener('click', () => {
                 const targetDate = new Date(year, 0, 1);
                 const targetScroll = dateToScroll(targetDate);
-                isProgrammaticScroll = true;
-                DOM.scrollContainer.scrollTo({
-                    top: targetScroll,
-                    behavior: 'smooth'
-                });
-                setTimeout(() => { isProgrammaticScroll = false; }, 500);
+                withProgrammaticScroll(() => {
+                    DOM.scrollContainer.scrollTo({
+                        top: targetScroll,
+                        behavior: 'smooth'
+                    });
+                }, CONFIG.TIME.SMOOTH_SCROLL_DELAY);
             });
 
             DOM.timelineYears.appendChild(yearEl);
@@ -814,12 +851,12 @@ function createMapApp(locationData) {
 
             marker.addEventListener('click', () => {
                 const targetScroll = dateToScroll(location.startDate);
-                isProgrammaticScroll = true;
-                DOM.scrollContainer.scrollTo({
-                    top: targetScroll,
-                    behavior: 'smooth'
-                });
-                setTimeout(() => { isProgrammaticScroll = false; }, 500);
+                withProgrammaticScroll(() => {
+                    DOM.scrollContainer.scrollTo({
+                        top: targetScroll,
+                        behavior: 'smooth'
+                    });
+                }, CONFIG.TIME.SMOOTH_SCROLL_DELAY);
             });
 
             DOM.timelineMarkers.appendChild(marker);
@@ -833,13 +870,20 @@ function createMapApp(locationData) {
             DOM.timelineLabels.appendChild(label);
         });
 
-        // Initialize wave effect
-        updateWaveEffect();
+        // Cache timeline elements for performance
+        timelineElementsCache = {
+            years: Array.from(DOM.timelineYears.querySelectorAll('.timeline-year')),
+            labels: Array.from(DOM.timelineLabels.querySelectorAll('.timeline-label')),
+            markers: Array.from(DOM.timelineMarkers.querySelectorAll('.timeline-marker'))
+        };
+
+        // Initialize timeline fade effect
+        updateTimelineFade();
     };
 
     const updateTimeline = () => {
-        const startDate = new Date(TIME_CONFIG.START_YEAR, 0, 1);
-        const endDate = new Date(TIME_CONFIG.END_YEAR, 11, 31);
+        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
+        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
         const totalMs = endDate.getTime() - startDate.getTime();
         const currentMs = Math.max(startDate.getTime(), Math.min(endDate.getTime(), currentScrollDate.getTime()));
         const progress = (currentMs - startDate.getTime()) / totalMs;
@@ -849,11 +893,11 @@ function createMapApp(locationData) {
         DOM.timelineThumb.style.top = `${progress * 100}%`;
 
         // Update year labels: past = brighter, future = darker
-        DOM.timelineYears.querySelectorAll('.timeline-year').forEach(yearEl => {
+        timelineElementsCache.years.forEach(yearEl => {
             const year = parseInt(yearEl.dataset.year);
             const yearDate = new Date(year, 0, 1);
 
-            if (yearDate < currentScrollDate) {
+            if (yearDate <= currentScrollDate) {
                 // Past: brighter (full opacity)
                 yearEl.style.opacity = '1.0';
             } else {
@@ -863,7 +907,7 @@ function createMapApp(locationData) {
         });
 
         // Update place labels: past = brighter, future = darker
-        DOM.timelineLabels.querySelectorAll('.timeline-label').forEach((label, index) => {
+        timelineElementsCache.labels.forEach((label, index) => {
             const location = locationData[index];
 
             if (location.startDate < currentScrollDate) {
@@ -878,7 +922,7 @@ function createMapApp(locationData) {
         // Update marker highlights
         // "visible" = location has started (black)
         // "active" = currently at this location (black + scaled)
-        DOM.timelineMarkers.querySelectorAll('.timeline-marker').forEach((marker, index) => {
+        timelineElementsCache.markers.forEach((marker, index) => {
             const location = locationData[index];
             const locEndDate = location.endDate || realNow;
             const isVisible = currentScrollDate >= location.startDate;
@@ -890,38 +934,39 @@ function createMapApp(locationData) {
     };
 
     /**
-     * Update wave effect for all timeline elements
+     * Update timeline fade effect for all timeline elements
+     * Adjusts opacity based on distance from viewport center
      * Called on scroll with RAF throttling
      */
-    const updateWaveEffect = () => {
+    const updateTimelineFade = () => {
         const viewportCenter = getViewportCenter();
 
         // Performance: skip if viewport hasn't moved enough
-        if (Math.abs(viewportCenter - WAVE_CONFIG.LAST_VIEWPORT_CENTER) <
-            WAVE_CONFIG.UPDATE_THRESHOLD) {
+        if (Math.abs(viewportCenter - CONFIG.TIMELINE_FADE.LAST_VIEWPORT_CENTER) <
+            CONFIG.TIMELINE_FADE.UPDATE_THRESHOLD) {
             return;
         }
 
-        WAVE_CONFIG.LAST_VIEWPORT_CENTER = viewportCenter;
+        CONFIG.TIMELINE_FADE.LAST_VIEWPORT_CENTER = viewportCenter;
         const timelineRect = DOM.timeline.getBoundingClientRect();
         const timelineHeight = timelineRect.height;
 
-        // Update year labels (opacity only)
-        DOM.timelineYears.querySelectorAll('.timeline-year').forEach(year => {
+        // Update year labels (opacity fades based on distance)
+        timelineElementsCache.years.forEach(year => {
             const position = parseFloat(year.dataset.position);
             const elementTop = (position / 100) * timelineHeight;
             const distance = Math.abs(elementTop - viewportCenter);
-            year.style.opacity = calculateWaveOpacity(distance);
+            year.style.opacity = calculateTimelineOpacity(distance);
         });
 
-        // City labels stay at constant opacity (no wave effect)
+        // City labels stay at constant opacity (no fade effect)
 
-        // Update thumb (scale with wave if not dragging)
+        // Update thumb (scale based on distance if not dragging)
         if (!DOM.timelineThumb.classList.contains('dragging')) {
             const thumbPosition = parseFloat(DOM.timelineThumb.style.top);
             const thumbTop = (thumbPosition / 100) * timelineHeight;
             const distance = Math.abs(thumbTop - viewportCenter);
-            const opacity = calculateWaveOpacity(distance);
+            const opacity = calculateTimelineOpacity(distance);
             const scale = 1.0 + (opacity - 0.4) * 0.67;
 
             DOM.timelineThumb.style.transform =
@@ -994,14 +1039,14 @@ function createMapApp(locationData) {
         };
 
         const updateFromProgress = (progress) => {
-            const startDate = new Date(TIME_CONFIG.START_YEAR, 0, 1);
-            const endDate = new Date(TIME_CONFIG.END_YEAR, 11, 31);
+            const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
+            const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
             const totalMs = endDate.getTime() - startDate.getTime();
             const targetDate = new Date(startDate.getTime() + progress * totalMs);
             const targetScroll = dateToScroll(targetDate);
-            isProgrammaticScroll = true;
-            DOM.scrollContainer.scrollTop = targetScroll;
-            setTimeout(() => { isProgrammaticScroll = false; }, 100);
+            withProgrammaticScroll(() => {
+                DOM.scrollContainer.scrollTop = targetScroll;
+            });
         };
 
         // Mouse events for thumb
@@ -1129,7 +1174,7 @@ function createMapApp(locationData) {
 
             updateDateDisplay();
             updateTimeline();
-            updateWaveEffect(); // Add wave effect update
+            updateTimelineFade();
         });
     };
 
@@ -1164,15 +1209,15 @@ function createMapApp(locationData) {
                 updateScrollHeight();
                 // Restore scroll position based on saved date
                 requestAnimationFrame(() => {
-                    isProgrammaticScroll = true;
-                    DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
-                    currentScrollDate = savedDate;
-                    setTimeout(() => { isProgrammaticScroll = false; }, 100);
+                    withProgrammaticScroll(() => {
+                        DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
+                        currentScrollDate = savedDate;
+                    });
                 });
                 resizeCanvas();
                 initTimeline(); // Reinit for mobile/desktop switch
                 updateTimeline();
-                updateWaveEffect(); // Add wave effect update
+                updateTimelineFade();
             });
         }, CONFIG.DEBOUNCE_DELAY);
 
@@ -1185,9 +1230,9 @@ function createMapApp(locationData) {
                     const savedDate = new Date(currentScrollDate.getTime());
                     updateScrollHeight();
                     requestAnimationFrame(() => {
-                        isProgrammaticScroll = true;
-                        DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
-                        setTimeout(() => { isProgrammaticScroll = false; }, 100);
+                        withProgrammaticScroll(() => {
+                            DOM.scrollContainer.scrollTop = dateToScroll(savedDate);
+                        });
                     });
                     resizeCanvas();
                     initTimeline(); // Reinit for orientation switch
@@ -1195,6 +1240,16 @@ function createMapApp(locationData) {
                 });
             }, 50);
         });
+
+        // Email obfuscation
+        const emailLink = document.getElementById('email');
+        if (emailLink) {
+            const buildEmail = () => 'mail' + 'to' + ':' + 'ivan' + '.' + 'seredkin' + '@' + 'gmail' + '.' + 'com';
+            emailLink.addEventListener('mouseover', () => { emailLink.href = buildEmail(); });
+            emailLink.addEventListener('focus', () => { emailLink.href = buildEmail(); });
+            emailLink.addEventListener('mouseout', () => { emailLink.href = '#'; });
+            emailLink.addEventListener('blur', () => { emailLink.href = '#'; });
+        }
 
         // Initial draw
         resizeCanvas();

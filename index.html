@@ -48,7 +48,7 @@
 
         <div id="time-machine-wrapper">
             <!-- Scrollable container -->
-            <div id="time-scroll-container">
+            <div id="time-scroll-container" class="hide-scrollbar">
                 <div id="time-scroll-spacer"></div>
             </div>
 
@@ -61,9 +61,7 @@
                 </div>
 
                 <!-- Current date display -->
-                <div id="current-date-display">
-                    <span id="current-year">2025</span>
-                </div>
+                <div id="current-date-display"></div>
 
                 <!-- Timeline -->
                 <div id="timeline" data-revealed="false">
@@ -71,13 +69,9 @@
                         <div id="timeline-progress"></div>
                         <div id="timeline-thumb" role="slider" aria-label="Timeline scrubber" aria-valuemin="1985" aria-valuemax="2025" aria-valuenow="2025"></div>
                     </div>
-
-                    <!-- Lines group (fades in on scroll) -->
-                    <div id="timeline-lines">
-                        <div id="timeline-markers" role="list" aria-label="Locations"></div>
-                        <div id="timeline-years"></div>
-                        <div id="timeline-labels" aria-label="Location names"></div>
-                    </div>
+                    <div id="timeline-markers" role="list" aria-label="Locations"></div>
+                    <div id="timeline-years"></div>
+                    <div id="timeline-labels" aria-label="Location names"></div>
                 </div>
             </div>
         </div>
@@ -89,11 +83,7 @@
     <ul>
         <li><a href="https://www.linkedin.com/in/ivanseredkin" target="_blank">LinkedIn</a></li>
         <li><a href="https://github.com/siropkin" target="_blank">GitHub</a></li>
-        <li><a id="email" href="#"
-               onmouseover="this.href='mail' + 'to' + ':' + 'ivan' + '.' + 'seredkin' + '@' + 'gmail' + '.' + 'com';"
-               onfocus="this.href='mail' + 'to' + ':' + 'ivan' + '.' + 'seredkin' + '@' + 'gmail' + '.' + 'com';"
-               onmouseout="this.href='#'"
-               onblur="this.href='#'">Email</a></li>
+        <li><a id="email" href="#">Email</a></li>
     </ul>
 </footer>
 

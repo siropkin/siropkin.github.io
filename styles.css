@@ -3,6 +3,13 @@
     --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     --font-mono: 'Space Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
 
+    /* Font Sizes */
+    --font-size-xs: 0.5625rem;  /* 9px */
+    --font-size-sm: 0.6875rem;  /* 11px */
+    --font-size-base: 0.9375rem; /* 15px */
+    --font-size-lg: 1.5rem;      /* 24px */
+    --font-size-xl: 2rem;        /* 32px */
+
     /* Colors - Warm Minimal */
     --color-bg: #fafaf9;
     --color-surface: #ffffff;
@@ -21,12 +28,122 @@
     --timeline-marker-size: 6px;
     --timeline-color: #d4d4d4;
     --timeline-color-active: #737373;
+    --timeline-color-collapsed: #a3a3a3;
 
-    /* Timeline Wave Effect */
+    /* Timeline Fade Effect */
     --timeline-selected-width: 48px;
     --timeline-normal-width: 4px;
-    --timeline-wave-radius: 240px;
+    --timeline-fade-radius: 240px;
+
+    /* Transitions */
+    --transition-fast: 0.1s ease;
+    --transition-base: 0.2s ease;
+    --transition-smooth: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Spacing - Consistent 4px base scale */
+    --spacing-2xs: 4px;
+    --spacing-xs: 8px;
+    --spacing-sm: 12px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+
+    /* Border Radius */
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --radius-xl: 8px;
+    --radius-full: 50%;
+
+    /* Canvas colors for JS sync */
+    --color-canvas-country: #f8f8f7;
+    --color-canvas-border: #a8a29e;
+    --color-canvas-shadow: rgba(0, 0, 0, 0.12);
+    --color-canvas-text: #ffffff;
+
+    /* Opacity values */
+    --opacity-low: 0.3;
+    --opacity-medium: 0.4;
+    --opacity-high: 0.6;
+    --opacity-full: 1.0;
+
+    /* Transform scales */
+    --scale-subtle: 1.1;
+    --scale-normal: 1.2;
+    --scale-medium: 1.3;
+    --scale-large: 1.5;
+    --scale-xlarge: 1.8;
+
+    /* Z-index layers */
+    --z-tooltip: 100;
+    --z-timeline: 50;
+    --z-thumb: 10;
+
+    /* Line heights */
+    --line-height-tight: 1.5;
+    --line-height-normal: 1.6;
+
+    /* Letter spacing */
+    --letter-spacing-tight: -0.01em;
+    --letter-spacing-xtight: -0.02em;
+
+    /* Timeline dimensions */
+    --timeline-full-width: 156px;
+    --timeline-thumb-size: 14px;
+    --timeline-track-left: 108px;
+    --timeline-label-width: 100px;
+    --timeline-year-left: 116px;
+    --timeline-mobile-width: 20px;
+
+    /* RGBA color components */
+    --rgb-text: 28, 25, 23;
+    --rgb-surface: 255, 255, 255;
 }
+
+/* ========================================
+   Utility Classes
+   ======================================== */
+
+/* Screen reader only content */
+.sr-only {
+    position: absolute !important;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+/* Hide scrollbar */
+.hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Focus outline styles */
+.focus-outline:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+}
+
+.focus-outline-round:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 0;
+    border-radius: var(--radius-full);
+}
+
+/* ========================================
+   Base Styles
+   ======================================== */
 
 * {
     box-sizing: border-box;
@@ -35,13 +152,13 @@
 body {
     font-family: var(--font-sans);
     font-weight: 400;
-    font-size: 15px;
+    font-size: var(--font-size-base);
     line-height: 1.6;
     letter-spacing: -0.01em;
     background-color: var(--color-bg);
     color: var(--color-text);
     margin: 0;
-    padding: 1.5rem;
+    padding: var(--spacing-lg);
     height: 100vh;  /* Fallback for older browsers */
     height: 100dvh; /* Dynamic viewport height for modern browsers */
     overflow: hidden;
@@ -51,13 +168,13 @@ body {
 
 h1 {
     font-weight: 700;
-    font-size: 2rem;
+    font-size: var(--font-size-xl);
     letter-spacing: -0.02em;
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--spacing-xs) 0;
 }
 
 header {
-    margin-bottom: 0.75rem;
+    margin-bottom: var(--spacing-sm);
 }
 
 main {
@@ -75,17 +192,17 @@ main {
 }
 
 #journey p {
-    margin: 0 0 1rem 0;
+    margin: 0 0 var(--spacing-md) 0;
 }
 
 footer {
-    margin-top: 2rem;
+    margin-top: var(--spacing-xl);
     flex-shrink: 0;
 }
 
 footer p {
     color: var(--color-text-muted);
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 var(--spacing-xs) 0;
 }
 
 footer ul {
@@ -93,7 +210,7 @@ footer ul {
     padding: 0;
     margin: 0;
     display: flex;
-    gap: 1.5rem;
+    gap: var(--spacing-lg);
     flex-wrap: wrap;
 }
 
@@ -105,7 +222,7 @@ footer a {
     color: var(--color-text);
     text-decoration: none;
     border-bottom: 1px solid var(--color-border);
-    transition: border-color 0.2s ease;
+    transition: border-color var(--transition-base);
 }
 
 footer a:hover,
@@ -116,7 +233,7 @@ footer a:focus {
 footer a:focus {
     outline: 2px solid var(--color-accent);
     outline-offset: 2px;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
 }
 
 #tooltip {
@@ -124,9 +241,9 @@ footer a:focus {
     display: none;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 4px;
+    border-radius: var(--radius-md);
     box-shadow: var(--shadow-md);
-    padding: 10px;
+    padding: var(--spacing-sm);
     pointer-events: none;
     z-index: 100;
     line-height: 1.5;
@@ -153,12 +270,7 @@ footer a:focus {
     bottom: 0;
     overflow-y: scroll;
     overflow-x: hidden;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-}
-
-#time-scroll-container::-webkit-scrollbar {
-    display: none;
+    /* Scrollbar hiding handled by .hide-scrollbar utility class in HTML */
 }
 
 #time-scroll-spacer {
@@ -180,12 +292,13 @@ footer a:focus {
     width: 100%;
     height: 100%;
     background: var(--color-surface);
-    border-radius: 8px;
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
     pointer-events: auto;
 }
 
 #map {
-    border-radius: 8px;
+    border-radius: var(--radius-xl);
 }
 
 #map-overlays {
@@ -198,13 +311,13 @@ footer a:focus {
 }
 
 .map-overlay-btn {
-    transition: opacity 0.2s ease;
+    transition: opacity var(--transition-base);
 }
 
 .map-overlay-btn:focus {
     outline: 2px solid var(--color-accent);
     outline-offset: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
 }
 
 .map-overlay-btn:focus-visible {
@@ -212,16 +325,7 @@ footer a:focus {
     outline-offset: 0;
 }
 
-.map-overlay-btn span {
-    position: absolute !important;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    border: 0;
-}
+/* Screen reader text uses .sr-only utility class */
 
 /* Pulsing animation for current position */
 @keyframes pulse-ring {
@@ -242,7 +346,7 @@ footer a:focus {
     left: 0;
     right: 0;
     bottom: 0;
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     background: rgba(28, 25, 23, 0.3);
     animation: pulse-ring 2s ease-out infinite;
 }
@@ -250,33 +354,29 @@ footer a:focus {
 /* Current Date Display */
 #current-date-display {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: var(--spacing-sm);
+    left: var(--spacing-sm);
     background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(var(--spacing-xs));
+    -webkit-backdrop-filter: blur(var(--spacing-xs));
     border: 1px solid var(--color-border);
-    border-radius: 6px;
-    padding: 6px 10px;
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-2xs) var(--spacing-sm);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--font-size-sm);
+    font-weight: 400;
     color: var(--color-text);
     box-shadow: var(--shadow-sm);
     z-index: 50;
     pointer-events: none;
 }
 
-#current-year {
-    font-size: 11px;
-    font-weight: 400;
-}
-
 /* Timeline - Universal Vertical Design */
 #timeline {
     position: absolute;
-    top: 10px;
-    right: 12px;
-    bottom: 10px;
+    top: var(--spacing-sm);
+    right: var(--spacing-lg);
+    bottom: var(--spacing-sm);
     width: 156px;
     display: flex;
     flex-direction: column;
@@ -291,12 +391,12 @@ footer a:focus {
 
 #timeline-track {
     position: absolute;
-    top: 10px;
-    bottom: 10px;
+    top: var(--spacing-sm);
+    bottom: var(--spacing-sm);
     left: 108px;
     width: var(--timeline-track-width);
     background: var(--timeline-color);
-    border-radius: 1px;
+    border-radius: var(--radius-sm);
 }
 
 #timeline-progress {
@@ -305,7 +405,7 @@ footer a:focus {
     left: 0;
     right: 0;
     background: var(--timeline-color-active);
-    border-radius: 1px;
+    border-radius: var(--radius-sm);
 }
 
 #timeline-thumb {
@@ -314,11 +414,11 @@ footer a:focus {
     height: 14px;
     background: var(--color-surface);
     border: 2px solid var(--timeline-color-active);
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     left: 50%;
     transform: translate(-50%, -50%);
     cursor: grab;
-    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.1s ease;
+    transition: transform var(--transition-smooth), box-shadow var(--transition-fast);
     box-shadow: var(--shadow-sm);
     z-index: 10;
 }
@@ -335,43 +435,47 @@ footer a:focus {
     box-shadow: var(--shadow-md);
 }
 
-/* Timeline Lines - Scroll Reveal */
-#timeline-lines {
+/* Timeline Elements - Scroll Reveal */
+#timeline-markers,
+#timeline-years,
+#timeline-labels {
     position: absolute;
-    top: 10px;
-    bottom: 10px;
-    left: 0;
-    right: 0;
+    top: var(--spacing-sm);
+    bottom: var(--spacing-sm);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity var(--transition-slow);
 }
 
-#timeline[data-revealed="true"][data-scrolling="true"] #timeline-lines {
+#timeline[data-revealed="true"][data-scrolling="true"] #timeline-markers,
+#timeline[data-revealed="true"][data-scrolling="true"] #timeline-years,
+#timeline[data-revealed="true"][data-scrolling="true"] #timeline-labels {
     opacity: 1;
     pointer-events: auto;
 }
 
-#timeline[data-revealed="true"][data-scrolling="false"] #timeline-lines {
+#timeline[data-revealed="true"][data-scrolling="false"] #timeline-markers,
+#timeline[data-revealed="true"][data-scrolling="false"] #timeline-years,
+#timeline[data-revealed="true"][data-scrolling="false"] #timeline-labels {
     opacity: 0;
     pointer-events: none;
 }
 
-/* Collapsed mode styling - thicker line, thinner circle, lighter progress */
+/* Collapsed mode styling - thinner line, thinner circle, lighter progress */
 #timeline[data-scrolling="false"] #timeline-track {
     width: 1px;
-    transition: width 0.2s ease;
+    transition: width var(--transition-base);
 }
 
 #timeline[data-scrolling="false"] #timeline-progress {
-    background: #a3a3a3;
-    transition: background 0.2s ease;
+    background: var(--timeline-color-collapsed);
+    transition: background var(--transition-base);
 }
 
 #timeline[data-scrolling="false"] #timeline-thumb {
     border-width: 1px;
-    border-color: #a3a3a3;
-    transition: border-color 0.2s ease, border-width 0.2s ease;
+    border-color: var(--timeline-color-collapsed);
+    transition: border-color var(--transition-base), border-width var(--transition-base);
 }
 
 /* Timeline Markers - Hidden */
@@ -384,11 +488,11 @@ footer a:focus {
     width: var(--timeline-marker-size);
     height: var(--timeline-marker-size);
     background: var(--timeline-color);
-    border-radius: 50%;
+    border-radius: var(--radius-full);
     left: 0;
     transform: translate(-50%, -50%);
     cursor: pointer;
-    transition: background-color 0.2s ease, transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background-color var(--transition-base), transform var(--transition-smooth);
 }
 
 .timeline-marker:hover {
@@ -406,9 +510,6 @@ footer a:focus {
 
 /* Timeline Year Labels */
 #timeline-years {
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
     left: 116px;
     width: 40px;
 }
@@ -416,7 +517,7 @@ footer a:focus {
 .timeline-year {
     position: absolute;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--color-text);
     text-align: left;
     transform: translateY(-50%);
@@ -431,9 +532,6 @@ footer a:focus {
 
 /* Timeline City Labels */
 #timeline-labels {
-    position: absolute;
-    top: 10px;
-    bottom: 10px;
     left: 0;
     width: 100px;
     text-align: right;
@@ -444,7 +542,7 @@ footer a:focus {
     position: absolute;
     right: 0;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--font-size-sm);
     color: var(--color-text);
     white-space: nowrap;
     text-align: right;
@@ -454,32 +552,32 @@ footer a:focus {
 
 @media (max-width: 768px) {
     body {
-        padding: 1rem;
+        padding: var(--spacing-md);
     }
 
     h1 {
-        font-size: 1.5rem;
+        font-size: var(--font-size-lg);
     }
 
     footer ul {
-        gap: 1rem;
+        gap: var(--spacing-md);
     }
 
     /* Timeline - Vertical Mobile Adjustments */
     :root {
         --timeline-selected-width: 36px;
-        --timeline-wave-radius: 180px;
+        --timeline-fade-radius: 180px;
     }
 
     #timeline {
         position: fixed;
-        right: 4px;
+        right: var(--spacing-2xs);
         width: 20px;
         /* height and top set dynamically via JS to match map container */
     }
 
     #timeline-track {
-        left: 8px;
+        left: var(--spacing-xs);
     }
 
     #timeline-years {
@@ -491,20 +589,17 @@ footer a:focus {
     }
 
     .timeline-year {
-        font-size: 9px;
+        font-size: var(--font-size-xs);
     }
 
     .timeline-label {
-        font-size: 9px;
+        font-size: var(--font-size-xs);
     }
 
     #current-date-display {
-        top: 8px;
-        left: 8px;
-        padding: 4px 8px;
-    }
-
-    #current-year {
-        font-size: 9px;
+        top: var(--spacing-xs);
+        left: var(--spacing-xs);
+        padding: var(--spacing-2xs) var(--spacing-xs);
+        font-size: var(--font-size-xs);
     }
 }
