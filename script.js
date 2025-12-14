@@ -667,7 +667,7 @@ function createMapApp(locationData) {
             DOM.currentYear.textContent = `${yearText}, ${currentLocation.city}`;
         } else if (currentScrollDate < birthDate) {
             // Before birth - add a joke
-            DOM.currentYear.textContent = `${yearText}, In the void`;
+            DOM.currentYear.textContent = `${yearText}, Undefined`;
         } else {
             // Between locations - shouldn't happen often, but show last known location
             // Find the most recent location before current date
