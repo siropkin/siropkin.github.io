@@ -280,11 +280,12 @@ footer a:focus {
 
 #map-viewport {
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    top: var(--spacing-xs);
+    left: var(--spacing-xs);
+    right: var(--spacing-xs);
+    bottom: var(--spacing-xs);
     pointer-events: none;
+    overflow: visible;
 }
 
 #map-container {
@@ -397,6 +398,8 @@ footer a:focus {
     width: var(--timeline-track-width);
     background: var(--timeline-color);
     border-radius: var(--radius-sm);
+    /* Prevent mobile browsers from treating timeline scrubs as page scroll/gestures */
+    touch-action: none;
 }
 
 #timeline-progress {
@@ -421,6 +424,8 @@ footer a:focus {
     transition: transform var(--transition-smooth), box-shadow var(--transition-fast);
     box-shadow: var(--shadow-sm);
     z-index: 10;
+    /* Critical for smooth dragging on mobile (prevents scroll/zoom gestures during drag) */
+    touch-action: none;
 }
 
 #timeline-thumb:hover {

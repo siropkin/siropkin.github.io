@@ -14,7 +14,7 @@ const locations = [
         country: "Russia",
         city: "Izhevsk",
         coordinates: [53.2324, 56.8619],
-        startDate: new Date(2005, 9, 1),
+        startDate: new Date(2005, 9, 2),
         endDate: new Date(2014, 3, 1),
         description: "Pelmeni & textbooks"
     },
@@ -22,7 +22,7 @@ const locations = [
         country: "Russia",
         city: "Moscow",
         coordinates: [37.6173, 55.7558],
-        startDate: new Date(2014, 3, 1),
+        startDate: new Date(2014, 3, 2),
         endDate: new Date(2020, 4, 1),
         description: "Subway warrior"
     },
@@ -30,8 +30,8 @@ const locations = [
         country: "Russia",
         city: "St. Petersburg",
         coordinates: [30.3609, 59.9311],
-        startDate: new Date(2020, 4, 1),
-        endDate: new Date(2022, 2, 4),
+        startDate: new Date(2020, 4, 2),
+        endDate: new Date(2022, 2, 3),
         description: "White nights, cold bytes"
     },
     {
@@ -39,7 +39,7 @@ const locations = [
         city: "Antalya",
         coordinates: [30.7133, 36.8969],
         startDate: new Date(2022, 2, 4),
-        endDate: new Date(2023, 10, 23),
+        endDate: new Date(2023, 10, 22),
         description: "Beach office vibes"
     },
     {
@@ -47,7 +47,7 @@ const locations = [
         city: "Annapolis",
         coordinates: [-76.4896, 38.9764],
         startDate: new Date(2023, 10, 23),
-        endDate: new Date(2025, 7, 3),
+        endDate: new Date(2025, 7, 2),
         description: "American debugger"
     },
     {
@@ -79,6 +79,7 @@ const CONFIG = {
         SCROLL_DELAY: 100,
         SMOOTH_SCROLL_DELAY: 500,
         LABEL_HIDE_DELAY: 1500,
+        STICKY_THRESHOLD_DAYS: 30, // Days around location startDate to apply sticky effect
     },
 
     // Keyboard navigation settings
@@ -412,6 +413,49 @@ function createMapApp(locationData) {
         return new Date(currentMs);
     };
 
+    /**
+     * Calculate sticky resistance factor when scrolling near location start dates
+     * Returns a value between 0.25 and 1.0
+     * At target (distance 0): 25% scroll speed (very sticky)
+     * At threshold edge: 100% scroll speed (no sticky)
+     */
+    const getStickyResistance = (scrollTop) => {
+        if (isProgrammaticScroll) return 1.0;
+        
+        const currentDate = scrollToDate(scrollTop);
+        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+        
+        // Find nearest location startDate
+        let nearestLocation = null;
+        let minDistance = Infinity;
+        
+        for (const location of locationData) {
+            const distance = Math.abs(currentDate.getTime() - location.startDate.getTime());
+            if (distance < minDistance && distance <= thresholdMs) {
+                minDistance = distance;
+                nearestLocation = location;
+            }
+        }
+        
+        // If we're near a location start, apply sticky effect
+        if (nearestLocation) {
+            const targetDate = nearestLocation.startDate;
+            const targetScroll = dateToScroll(targetDate);
+            const distance = Math.abs(scrollTop - targetScroll);
+            const maxDistance = Math.abs(dateToScroll(new Date(targetDate.getTime() + thresholdMs)) - targetScroll);
+            
+            if (distance < maxDistance) {
+                // Reduce scroll delta based on distance from target
+                // Closer to target = more resistance (less scrolling)
+                // At target: 25% speed, at edge: 100% speed
+                const MIN_RESISTANCE = 0.25; // Minimum scroll speed at target (25% = quite sticky)
+                return MIN_RESISTANCE + (distance / maxDistance) * (1 - MIN_RESISTANCE);
+            }
+        }
+        
+        return 1.0; // No resistance
+    };
+
     const dateToScroll = (date) => {
         const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
         const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
@@ -735,6 +779,20 @@ function createMapApp(locationData) {
         // Birth date
         const birthDate = locationData[0].startDate; // September 19, 1985
 
+        // Check if we're at a location startDate (within threshold)
+        let isAtLocationStart = false;
+        let locationAtStart = null;
+        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
+        
+        for (const location of locationData) {
+            const timeDiff = Math.abs(currentScrollDate.getTime() - location.startDate.getTime());
+            if (timeDiff <= thresholdMs) {
+                isAtLocationStart = true;
+                locationAtStart = location;
+                break;
+            }
+        }
+
         // Find current location based on scroll date
         let currentLocation = null;
         for (const location of locationData) {
@@ -745,32 +803,53 @@ function createMapApp(locationData) {
             }
         }
 
-        // Format year part
-        const yearText = isAtPresent(currentScrollDate) ? 'Now' : currentScrollDate.getFullYear();
+        // Format date based on context
+        let dateText;
+        if (isAtLocationStart && locationAtStart) {
+            // At location start: show exact date (day, month, year)
+            const date = locationAtStart.startDate;
+            dateText = date.toLocaleDateString('en-US', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        } else if (isAtPresent(currentScrollDate)) {
+            // At present: show "Now"
+            dateText = 'Now';
+        } else {
+            // Other timeline steps: show month and year
+            dateText = currentScrollDate.toLocaleDateString('en-US', {
+                month: 'short',
+                year: 'numeric'
+            });
+        }
 
-        // Display format: "Year, Location"
-        if (currentLocation) {
-            // Currently at a location
-            DOM.currentDateDisplay.textContent = `${yearText}, ${currentLocation.city}`;
+        // Display format: "Date, Location"
+        // If we're at a location start date, always use that location for consistency
+        // This prevents flickering between locations when sticky effect adjusts scroll position
+        let displayLocation = null;
+        if (isAtLocationStart && locationAtStart) {
+            displayLocation = locationAtStart;
+        } else if (currentLocation) {
+            displayLocation = currentLocation;
         } else if (currentScrollDate < birthDate) {
             // Before birth - add a joke
-            DOM.currentDateDisplay.textContent = `${yearText}, Undefined`;
+            DOM.currentDateDisplay.textContent = `${dateText}, Undefined`;
+            return;
         } else {
-            // Between locations - shouldn't happen often, but show last known location
-            // Find the most recent location before current date
-            let lastLocation = null;
-            for (const location of locationData) {
-                if (location.startDate <= currentScrollDate) {
-                    lastLocation = location;
-                } else {
+            // Between locations - find the most recent location before current date
+            for (let i = locationData.length - 1; i >= 0; i--) {
+                if (locationData[i].startDate <= currentScrollDate) {
+                    displayLocation = locationData[i];
                     break;
                 }
             }
-            if (lastLocation) {
-                DOM.currentDateDisplay.textContent = `${yearText}, ${lastLocation.city}`;
-            } else {
-                DOM.currentDateDisplay.textContent = `${yearText}, Somewhere`;
-            }
+        }
+        
+        if (displayLocation) {
+            DOM.currentDateDisplay.textContent = `${dateText}, ${displayLocation.city}`;
+        } else {
+            DOM.currentDateDisplay.textContent = `${dateText}, Somewhere`;
         }
     };
 
@@ -923,11 +1002,17 @@ function createMapApp(locationData) {
         });
 
         // Update place labels: past = brighter, future = darker
+        // Also check if we're at a location start date (within sticky threshold) to keep it dark
+        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
         timelineElementsCache.labels.forEach((label, index) => {
             const location = locationData[index];
+            
+            // Check if we're at this location's start date (within threshold)
+            const timeDiff = Math.abs(currentScrollDate.getTime() - location.startDate.getTime());
+            const isAtThisLocationStart = timeDiff <= thresholdMs;
 
-            if (location.startDate < currentScrollDate) {
-                // Past: brighter (full opacity)
+            if (location.startDate <= currentScrollDate || isAtThisLocationStart) {
+                // Past or at start date: brighter (full opacity)
                 label.style.opacity = '1.0';
             } else {
                 // Future: darker (low opacity)
@@ -1042,16 +1127,16 @@ function createMapApp(locationData) {
 
     const initTimelineDrag = () => {
         let isDragging = false;
+        let activePointerId = null;
 
-        const getProgressFromPosition = (clientX, clientY) => {
+        const clamp01 = (v) => Math.max(0, Math.min(1, v));
+
+        // Timeline is vertical on both desktop and mobile (CSS + updateTimeline()).
+        // Use Y coordinate consistently to avoid mobile "jumping" behavior.
+        const getProgressFromClientPoint = (clientY) => {
             const trackRect = DOM.timelineTrack.getBoundingClientRect();
-            if (isMobile()) {
-                const x = clientX - trackRect.left;
-                return Math.max(0, Math.min(1, x / trackRect.width));
-            } else {
-                const y = clientY - trackRect.top;
-                return Math.max(0, Math.min(1, y / trackRect.height));
-            }
+            const y = clientY - trackRect.top;
+            return clamp01(y / trackRect.height);
         };
 
         const updateFromProgress = (progress) => {
@@ -1065,71 +1150,75 @@ function createMapApp(locationData) {
             });
         };
 
-        // Mouse events for thumb
-        DOM.timelineThumb.addEventListener('mousedown', (e) => {
+        const startDragging = (e) => {
+            // Only handle primary button for mouse; touch/pen are fine.
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
             e.preventDefault();
+
             isDragging = true;
+            activePointerId = e.pointerId;
             DOM.timelineThumb.classList.add('dragging');
+            DOM.timelineThumb.setPointerCapture(activePointerId);
             document.body.style.cursor = 'grabbing';
             document.body.style.userSelect = 'none';
-        });
 
-        // Mouse events for track (click to jump)
-        DOM.timelineTrack.addEventListener('click', (e) => {
+            const progress = getProgressFromClientPoint(e.clientY);
+            updateFromProgress(progress);
+        };
+
+        const stopDragging = () => {
+            if (!isDragging) return;
+            isDragging = false;
+            activePointerId = null;
+            DOM.timelineThumb.classList.remove('dragging');
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        // Pointer events (unifies mouse + touch + pen; fixes mobile jumpiness)
+        DOM.timelineThumb.addEventListener('pointerdown', startDragging, { passive: false });
+
+        DOM.timelineTrack.addEventListener('pointerdown', (e) => {
+            // Clicking/pressing the track should jump, unless starting on the thumb.
             if (e.target === DOM.timelineThumb) return;
-            const progress = getProgressFromPosition(e.clientX, e.clientY);
-            updateFromProgress(progress);
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
             e.preventDefault();
-            const progress = getProgressFromPosition(e.clientX, e.clientY);
+            const progress = getProgressFromClientPoint(e.clientY);
             updateFromProgress(progress);
-        });
+        }, { passive: false });
 
-        document.addEventListener('mouseup', () => {
-            if (isDragging) {
-                isDragging = false;
-                DOM.timelineThumb.classList.remove('dragging');
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            }
-        });
-
-        // Touch events for thumb
-        DOM.timelineThumb.addEventListener('touchstart', () => {
-            isDragging = true;
-            DOM.timelineThumb.classList.add('dragging');
-        }, { passive: true });
-
-        document.addEventListener('touchmove', (e) => {
+        DOM.timelineThumb.addEventListener('pointermove', (e) => {
             if (!isDragging) return;
-            const touch = e.touches[0];
-            const progress = getProgressFromPosition(touch.clientX, touch.clientY);
+            if (activePointerId !== null && e.pointerId !== activePointerId) return;
+            e.preventDefault();
+            const progress = getProgressFromClientPoint(e.clientY);
             updateFromProgress(progress);
-        }, { passive: true });
+        }, { passive: false });
 
-        document.addEventListener('touchend', () => {
-            if (isDragging) {
-                isDragging = false;
-                DOM.timelineThumb.classList.remove('dragging');
-            }
-        });
+        DOM.timelineThumb.addEventListener('pointerup', stopDragging);
+        DOM.timelineThumb.addEventListener('pointercancel', stopDragging);
+        DOM.timelineThumb.addEventListener('lostpointercapture', stopDragging);
     };
 
     const initPageWheel = () => {
         // Listen for wheel events on the entire page
         document.addEventListener('wheel', (e) => {
             e.preventDefault();
-            // Scroll the time machine container based on wheel delta
-            DOM.scrollContainer.scrollTop += e.deltaY;
+            
+            // Apply sticky effect for location start dates
+            const currentScrollTop = DOM.scrollContainer.scrollTop;
+            const resistance = getStickyResistance(currentScrollTop);
+            const scrollDelta = e.deltaY * resistance;
+            
+            // Scroll the time machine container based on adjusted wheel delta
+            DOM.scrollContainer.scrollTop += scrollDelta;
         }, { passive: false });
     };
 
     const initPageTouch = () => {
         let touchStart = null;
         let lastTouch = null;
+        let isHandlingScroll = false;
 
         document.addEventListener('touchstart', (e) => {
             // Don't interfere with timeline thumb dragging
@@ -1138,6 +1227,7 @@ function createMapApp(locationData) {
             const touch = e.touches[0];
             touchStart = { x: touch.clientX, y: touch.clientY };
             lastTouch = { ...touchStart };
+            isHandlingScroll = false;
         }, { passive: true });
 
         document.addEventListener('touchmove', (e) => {
@@ -1147,19 +1237,39 @@ function createMapApp(locationData) {
 
             const touch = e.touches[0];
             const mobile = isMobile();
+            
+            // Calculate movement
+            const deltaX = Math.abs(touch.clientX - touchStart.x);
+            const deltaY = Math.abs(touch.clientY - touchStart.y);
+            
+            // On mobile: always handle horizontal movement as scroll
+            // On desktop: handle vertical movement as scroll
+            const shouldHandle = mobile 
+                ? deltaX > 2  // Any horizontal movement on mobile
+                : deltaY > 2;  // Any vertical movement on desktop
 
-            // On mobile: horizontal swipe (left = forward, right = backward)
-            // On desktop: vertical swipe (up = forward, down = backward)
-            if (mobile) {
-                const deltaX = lastTouch.x - touch.clientX;
-                DOM.scrollContainer.scrollTop += deltaX;
-            } else {
-                const deltaY = lastTouch.y - touch.clientY;
-                DOM.scrollContainer.scrollTop += deltaY;
+            // If we should handle this or are already handling, take over
+            if (shouldHandle || isHandlingScroll) {
+                e.preventDefault();
+                isHandlingScroll = true;
+
+                // On mobile: horizontal swipe (left = forward, right = backward)
+                // On desktop: vertical swipe (up = forward, down = backward)
+                const currentScrollTop = DOM.scrollContainer.scrollTop;
+                let scrollDelta;
+                if (mobile) {
+                    scrollDelta = lastTouch.x - touch.clientX;
+                } else {
+                    scrollDelta = lastTouch.y - touch.clientY;
+                }
+                
+                // Apply sticky effect for location start dates
+                const resistance = getStickyResistance(currentScrollTop);
+                DOM.scrollContainer.scrollTop += scrollDelta * resistance;
+
+                lastTouch = { x: touch.clientX, y: touch.clientY };
             }
-
-            lastTouch = { x: touch.clientX, y: touch.clientY };
-        }, { passive: true });
+        }, { passive: false });
 
         document.addEventListener('touchend', () => {
             touchStart = null;
@@ -1196,19 +1306,19 @@ function createMapApp(locationData) {
             const maxScroll = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
             const scrollDelta = getScrollDelta();
 
-            let newScroll;
+            let targetScroll;
             if (direction === 'up') {
-                newScroll = Math.max(0, currentScroll - scrollDelta);
+                targetScroll = Math.max(0, currentScroll - scrollDelta);
             } else {
-                newScroll = Math.min(maxScroll, currentScroll + scrollDelta);
+                targetScroll = Math.min(maxScroll, currentScroll + scrollDelta);
             }
 
             // Skip if at boundary
-            if (newScroll === currentScroll) return;
+            if (targetScroll === currentScroll) return;
 
             // Direct scroll without smooth behavior for responsive key repeat
             withProgrammaticScroll(() => {
-                DOM.scrollContainer.scrollTop = newScroll;
+                DOM.scrollContainer.scrollTop = targetScroll;
             }, 0);
         };
 
