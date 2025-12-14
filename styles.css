@@ -278,7 +278,7 @@ footer a:focus {
     top: 20px;
     right: 12px;
     bottom: 20px;
-    width: 180px;
+    width: 156px;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -294,7 +294,7 @@ footer a:focus {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 80px;
+    left: 108px;
     width: var(--timeline-track-width);
     background: var(--timeline-color);
     border-radius: 1px;
@@ -394,8 +394,8 @@ footer a:focus {
     position: absolute;
     top: 0;
     bottom: 0;
-    left: 90px;
-    width: 90px;
+    left: 116px;
+    width: 40px;
 }
 
 .timeline-year {
@@ -426,7 +426,7 @@ footer a:focus {
     top: 0;
     bottom: 0;
     left: 0;
-    width: 72px;
+    width: 100px;
     text-align: right;
     pointer-events: none;
 }
@@ -469,20 +469,20 @@ footer a:focus {
 
     #timeline {
         right: 8px;
-        width: 140px;
+        width: 126px;
     }
 
     #timeline-track {
-        left: 60px;
+        left: 80px;
     }
 
     #timeline-years {
-        left: 68px;
-        width: 72px;
+        left: 88px;
+        width: 38px;
     }
 
     #timeline-labels {
-        width: 52px;
+        width: 72px;
     }
 
     .timeline-year {
