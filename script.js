@@ -81,6 +81,11 @@ const CONFIG = {
         LABEL_HIDE_DELAY: 1500,
     },
 
+    // Keyboard navigation settings
+    KEYBOARD: {
+        TIME_INCREMENT_YEARS: 1/12, // Years to jump per arrow press (1 month)
+    },
+
     // Map display settings
     MAP: {
         SCALE: { MOBILE: 3.5, DESKTOP: 6.5 },
@@ -147,6 +152,18 @@ const debounce = (func, delay) => {
     return (...args) => {
         clearTimeout(timeoutId);
         timeoutId = setTimeout(() => func(...args), delay);
+    };
+};
+
+// Throttle utility - executes immediately then limits rate
+const throttle = (func, delay) => {
+    let lastCall = 0;
+    return (...args) => {
+        const now = Date.now();
+        if (now - lastCall >= delay) {
+            lastCall = now;
+            func(...args);
+        }
     };
 };
 
@@ -795,7 +812,6 @@ function createMapApp(locationData) {
         const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
         const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
         const totalMs = endDate.getTime() - startDate.getTime();
-        const mobile = isMobile();
 
         // Helper to calculate position from date
         const getPosition = (date) => {
@@ -1082,7 +1098,7 @@ function createMapApp(locationData) {
         });
 
         // Touch events for thumb
-        DOM.timelineThumb.addEventListener('touchstart', (e) => {
+        DOM.timelineThumb.addEventListener('touchstart', () => {
             isDragging = true;
             DOM.timelineThumb.classList.add('dragging');
         }, { passive: true });
@@ -1151,6 +1167,76 @@ function createMapApp(locationData) {
         }, { passive: true });
     };
 
+    const initKeyboardNavigation = () => {
+        let keyHoldCount = 0;
+        let lastKeyDirection = null;
+
+        const getScrollDelta = () => {
+            const totalYears = CONFIG.TIME.END_YEAR - CONFIG.TIME.START_YEAR;
+            const maxScroll = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
+            const baseScroll = (CONFIG.KEYBOARD.TIME_INCREMENT_YEARS / totalYears) * maxScroll;
+
+            // Apply acceleration: multiply by 1 + (count / 4)
+            // This grows quickly: 1x, 1.25x, 1.5x, 1.75x, 2x... up to 6x
+            const multiplier = Math.min(6, 1 + (keyHoldCount / 4));
+            return baseScroll * multiplier;
+        };
+
+        const handleKeyPress = (direction) => {
+            // Reset counter if direction changed
+            if (lastKeyDirection !== direction) {
+                keyHoldCount = 0;
+                lastKeyDirection = direction;
+            }
+
+            // Increment hold count for acceleration
+            keyHoldCount++;
+
+            const currentScroll = DOM.scrollContainer.scrollTop;
+            const maxScroll = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
+            const scrollDelta = getScrollDelta();
+
+            let newScroll;
+            if (direction === 'up') {
+                newScroll = Math.max(0, currentScroll - scrollDelta);
+            } else {
+                newScroll = Math.min(maxScroll, currentScroll + scrollDelta);
+            }
+
+            // Skip if at boundary
+            if (newScroll === currentScroll) return;
+
+            // Direct scroll without smooth behavior for responsive key repeat
+            withProgrammaticScroll(() => {
+                DOM.scrollContainer.scrollTop = newScroll;
+            }, 0);
+        };
+
+        document.addEventListener('keydown', (e) => {
+            // Skip if typing in input field
+            if (e.target.matches('input, textarea, select')) return;
+
+            // Skip if modifier keys pressed (preserve browser shortcuts)
+            if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                handleKeyPress('down');
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                handleKeyPress('up');
+            }
+        });
+
+        // Reset acceleration when key is released
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                keyHoldCount = 0;
+                lastKeyDirection = null;
+            }
+        });
+    };
+
     const handleScroll = () => {
         if (animationFrameId) {
             cancelAnimationFrame(animationFrameId);
@@ -1195,6 +1281,7 @@ function createMapApp(locationData) {
         initTimelineDrag();
         initPageWheel();
         initPageTouch();
+        initKeyboardNavigation();
         updateDateDisplay();
         scrollToPresent();
 
