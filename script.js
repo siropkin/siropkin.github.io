@@ -78,13 +78,6 @@ const CONFIG = {
         PIXELS_PER_YEAR: 150,
         SCROLL_DELAY: 100,
         SMOOTH_SCROLL_DELAY: 500,
-        LABEL_HIDE_DELAY: 1500,
-        STICKY_THRESHOLD_DAYS: 30, // Days around location startDate to apply sticky effect
-    },
-
-    // Keyboard navigation settings
-    KEYBOARD: {
-        TIME_INCREMENT_YEARS: 1/12, // Years to jump per arrow press (1 month)
     },
 
     // Map display settings
@@ -100,16 +93,6 @@ const CONFIG = {
         SHADOW_BLUR: 12,
         SHADOW_OFFSET: 3,
         BORDER_WIDTH: 1,
-    },
-
-    // Timeline fade effect configuration
-    TIMELINE_FADE: {
-        SELECTED_WIDTH: { MOBILE: 36, DESKTOP: 48 },
-        NORMAL_WIDTH: 4,
-        FADE_RADIUS: { MOBILE: 180, DESKTOP: 240 },
-        CURVE_POWER: 2,
-        UPDATE_THRESHOLD: 5,
-        LAST_VIEWPORT_CENTER: 0,
     },
 
     // Colors - synced with CSS variables
@@ -252,14 +235,7 @@ function createMapApp(locationData) {
         scrollContainer: document.getElementById('time-scroll-container'),
         scrollSpacer: document.getElementById('time-scroll-spacer'),
         mapViewport: document.getElementById('map-viewport'),
-        currentDateDisplay: document.getElementById('current-date-display'),
-        timeline: document.getElementById('timeline'),
-        timelineTrack: document.getElementById('timeline-track'),
-        timelineProgress: document.getElementById('timeline-progress'),
-        timelineThumb: document.getElementById('timeline-thumb'),
-        timelineMarkers: document.getElementById('timeline-markers'),
-        timelineLabels: document.getElementById('timeline-labels'),
-        timelineYears: document.getElementById('timeline-years'),
+        timelineStops: document.getElementById('timeline-stops'),
     };
 
     // ====================================================================
@@ -273,15 +249,10 @@ function createMapApp(locationData) {
     let currentScrollDate = new Date(realNow); // Start at present
     let animationFrameId = null;
     let isProgrammaticScroll = false; // Track if scroll is programmatic
-    let hideLabelsTimeout = null; // Timer for hiding labels after scroll stops
+    let selectedLocationIndex = null;
     // Button pool for overlay accessibility
     let buttonPool = [];
-    // Timeline element cache
-    let timelineElementsCache = {
-        years: [],
-        labels: [],
-        markers: []
-    };
+    let timelineStopButtons = [];
 
 
     // ====================================================================
@@ -413,49 +384,6 @@ function createMapApp(locationData) {
         return new Date(currentMs);
     };
 
-    /**
-     * Calculate sticky resistance factor when scrolling near location start dates
-     * Returns a value between 0.25 and 1.0
-     * At target (distance 0): 25% scroll speed (very sticky)
-     * At threshold edge: 100% scroll speed (no sticky)
-     */
-    const getStickyResistance = (scrollTop) => {
-        if (isProgrammaticScroll) return 1.0;
-        
-        const currentDate = scrollToDate(scrollTop);
-        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-        
-        // Find nearest location startDate
-        let nearestLocation = null;
-        let minDistance = Infinity;
-        
-        for (const location of locationData) {
-            const distance = Math.abs(currentDate.getTime() - location.startDate.getTime());
-            if (distance < minDistance && distance <= thresholdMs) {
-                minDistance = distance;
-                nearestLocation = location;
-            }
-        }
-        
-        // If we're near a location start, apply sticky effect
-        if (nearestLocation) {
-            const targetDate = nearestLocation.startDate;
-            const targetScroll = dateToScroll(targetDate);
-            const distance = Math.abs(scrollTop - targetScroll);
-            const maxDistance = Math.abs(dateToScroll(new Date(targetDate.getTime() + thresholdMs)) - targetScroll);
-            
-            if (distance < maxDistance) {
-                // Reduce scroll delta based on distance from target
-                // Closer to target = more resistance (less scrolling)
-                // At target: 25% speed, at edge: 100% speed
-                const MIN_RESISTANCE = 0.25; // Minimum scroll speed at target (25% = quite sticky)
-                return MIN_RESISTANCE + (distance / maxDistance) * (1 - MIN_RESISTANCE);
-            }
-        }
-        
-        return 1.0; // No resistance
-    };
-
     const dateToScroll = (date) => {
         const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
         const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
@@ -521,17 +449,6 @@ function createMapApp(locationData) {
         projection = createProjection(DOM.canvas.width, DOM.canvas.height);
         path = d3.geoPath().projection(projection).context(ctx);
 
-        // On mobile, set timeline height to match map container
-        if (isMobile()) {
-            const mapRect = DOM.container.getBoundingClientRect();
-            DOM.timeline.style.height = `${mapRect.height}px`;
-            DOM.timeline.style.top = `${mapRect.top}px`;
-        } else {
-            // Reset to CSS defaults on desktop
-            DOM.timeline.style.height = '';
-            DOM.timeline.style.top = '';
-        }
-
         drawMap();
     };
 
@@ -569,6 +486,15 @@ function createMapApp(locationData) {
         btn.addEventListener('blur', hideTooltip);
         btn.addEventListener('click', (e) => {
             e.preventDefault();
+            const index = Number.parseInt(btn.dataset.index, 10);
+            if (Number.isFinite(index)) {
+                selectedLocationIndex = index;
+                updateTimeline();
+                // Re-render to apply selected styles before showing tooltip
+                const visible = getVisibleLocations(currentScrollDate);
+                const computed = computeLocationData(visible, currentScrollDate);
+                render(computed);
+            }
             showButtonTooltip(btn);
         });
         btn.addEventListener('mouseenter', () => showButtonTooltip(btn));
@@ -577,7 +503,7 @@ function createMapApp(locationData) {
         return btn;
     };
 
-    const updateButton = (btn, data) => {
+    const updateButton = (btn, data, isSelected) => {
         const { location, cssX, cssY, radius, shouldPulse } = data;
         const dpr = window.devicePixelRatio || 1;
         const cssRadius = radius + CONFIG.POINT.BORDER_WIDTH / dpr;
@@ -587,7 +513,7 @@ function createMapApp(locationData) {
         const durationStr = DateUtils.formatDuration(location.startDate, location.endDate, currentScrollDate);
         const label = `${location.city}, ${location.country}. From ${startDateStr} to ${endDateStr} (${durationStr})`;
 
-        btn.className = 'map-overlay-btn' + (shouldPulse ? ' i-am-here' : '');
+        btn.className = `map-overlay-btn${shouldPulse ? ' i-am-here' : ''}${isSelected ? ' is-selected' : ''}`;
         btn.setAttribute('aria-label', label);
         btn.style.left = `${cssX - cssRadius}px`;
         btn.style.top = `${cssY - cssRadius}px`;
@@ -599,6 +525,7 @@ function createMapApp(locationData) {
         // Store data for event handlers
         btn.dataset.location = JSON.stringify(location);
         btn.dataset.cssRadius = cssRadius;
+        btn.dataset.index = String(data.index);
     };
 
     const updateOverlayButtons = (computedData) => {
@@ -613,7 +540,7 @@ function createMapApp(locationData) {
 
         // Update existing buttons with new data
         computedData.forEach((data, i) => {
-            updateButton(buttonPool[i], data);
+            updateButton(buttonPool[i], data, data.index === selectedLocationIndex);
         });
 
         // Hide excess buttons
@@ -772,556 +699,174 @@ function createMapApp(locationData) {
         DOM.tooltip.style.display = 'none';
     };
 
+    const rerenderCurrentMapState = () => {
+        const visible = getVisibleLocations(currentScrollDate);
+        const computed = computeLocationData(visible, currentScrollDate);
+        render(computed);
+    };
+
+    const focusLocationFromTimeline = (index) => {
+        selectedLocationIndex = index;
+        updateTimeline();
+        rerenderCurrentMapState();
+
+        const selectedBtn = buttonPool.find((btn) =>
+            btn.style.display !== 'none' &&
+            Number.parseInt(btn.dataset.index, 10) === index
+        );
+
+        if (selectedBtn) {
+            showButtonTooltip(selectedBtn);
+        } else {
+            hideTooltip();
+        }
+    };
+
+    const clearLocationFocus = () => {
+        if (selectedLocationIndex === null) return;
+        selectedLocationIndex = null;
+        updateTimeline();
+        rerenderCurrentMapState();
+        hideTooltip();
+    };
+
     // ====================================================================
     // TIME MACHINE UI
     // ====================================================================
-    const updateDateDisplay = () => {
-        // Birth date
-        const birthDate = locationData[0].startDate; // September 19, 1985
+    const getCurrentLocationIndex = (date = currentScrollDate) => {
+        let activeIndex = 0;
 
-        // Check if we're at a location startDate (within threshold)
-        let isAtLocationStart = false;
-        let locationAtStart = null;
-        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-        
-        for (const location of locationData) {
-            const timeDiff = Math.abs(currentScrollDate.getTime() - location.startDate.getTime());
-            if (timeDiff <= thresholdMs) {
-                isAtLocationStart = true;
-                locationAtStart = location;
-                break;
-            }
-        }
-
-        // Find current location based on scroll date
-        let currentLocation = null;
-        for (const location of locationData) {
+        for (let i = 0; i < locationData.length; i++) {
+            const location = locationData[i];
             const locEndDate = location.endDate || realNow;
-            if (currentScrollDate >= location.startDate && currentScrollDate <= locEndDate) {
-                currentLocation = location;
-                break;
+
+            if (date >= location.startDate && date <= locEndDate) {
+                return i;
+            }
+
+            if (date >= location.startDate) {
+                activeIndex = i;
             }
         }
 
-        // Format date based on context
-        let dateText;
-        if (isAtLocationStart && locationAtStart) {
-            // At location start: show exact date (day, month, year)
-            const date = locationAtStart.startDate;
-            dateText = date.toLocaleDateString('en-US', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric'
-            });
-        } else if (isAtPresent(currentScrollDate)) {
-            // At present: show "Now"
-            dateText = 'Now';
-        } else {
-            // Other timeline steps: show month and year
-            dateText = currentScrollDate.toLocaleDateString('en-US', {
-                month: 'short',
-                year: 'numeric'
-            });
-        }
-
-        // Display format: "Date, Location"
-        // If we're at a location start date, always use that location for consistency
-        // This prevents flickering between locations when sticky effect adjusts scroll position
-        let displayLocation = null;
-        if (isAtLocationStart && locationAtStart) {
-            displayLocation = locationAtStart;
-        } else if (currentLocation) {
-            displayLocation = currentLocation;
-        } else if (currentScrollDate < birthDate) {
-            // Before birth - add a joke
-            DOM.currentDateDisplay.textContent = `${dateText}, Undefined`;
-            return;
-        } else {
-            // Between locations - find the most recent location before current date
-            for (let i = locationData.length - 1; i >= 0; i--) {
-                if (locationData[i].startDate <= currentScrollDate) {
-                    displayLocation = locationData[i];
-                    break;
-                }
-            }
-        }
-        
-        if (displayLocation) {
-            DOM.currentDateDisplay.textContent = `${dateText}, ${displayLocation.city}`;
-        } else {
-            DOM.currentDateDisplay.textContent = `${dateText}, Somewhere`;
-        }
+        return activeIndex;
     };
 
-    // ====================================================================
-    // TIMELINE FADE EFFECT UTILITIES
-    // ====================================================================
-    /**
-     * Calculate opacity for timeline elements based on distance from viewport center
-     * Elements near viewport center are brighter (more visible)
-     */
-    const calculateTimelineOpacity = (distanceFromCenter) => {
-        const radius = isMobile() ?
-            CONFIG.TIMELINE_FADE.FADE_RADIUS.MOBILE :
-            CONFIG.TIMELINE_FADE.FADE_RADIUS.DESKTOP;
-
-        const normalized = Math.min(1, Math.abs(distanceFromCenter) / radius);
-        // Map from [0, 1] to [1.0, 0.4]
-        return 1.0 - (normalized * 0.6);
+    const getLocationAgeAtDate = (location, date = currentScrollDate) => {
+        const timelineStartMs = locationData[0].startDate.getTime();
+        const nowMs = date.getTime();
+        const locationEndMs = location.endDate ? location.endDate.getTime() : nowMs;
+        const effectiveEndMs = Math.min(locationEndMs, nowMs);
+        const maxAge = Math.max(1, nowMs - timelineStartMs);
+        const timeSinceEnd = Math.max(0, nowMs - effectiveEndMs);
+        return Math.max(0, Math.min(1, timeSinceEnd / maxAge));
     };
 
-    /**
-     * Get current viewport center position in timeline coordinates
-     */
-    const getViewportCenter = () => {
-        const timelineRect = DOM.timeline.getBoundingClientRect();
-        const viewportCenter = window.innerHeight / 2;
-        return viewportCenter - timelineRect.top;
+    const timelineTextColorInterpolator = ColorInterpolator.create(
+        CONFIG.COLORS.BG_INTERPOLATION.START,
+        CONFIG.COLORS.BG_INTERPOLATION.END,
+        0.5
+    );
+
+    const getTimelineTextColor = (location, date = currentScrollDate) => {
+        // Keep map-like age tinting but cap at readable lightness.
+        const age = getLocationAgeAtDate(location, date);
+        const readableAge = Math.min(0.72, age);
+        return timelineTextColorInterpolator(readableAge);
+    };
+
+    const jumpToLocation = (index, smooth = true) => {
+        const safeIndex = Math.max(0, Math.min(locationData.length - 1, index));
+        const targetDate = locationData[safeIndex].startDate;
+        const targetScroll = dateToScroll(targetDate);
+
+        withProgrammaticScroll(() => {
+            DOM.scrollContainer.scrollTo({
+                top: targetScroll,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+        }, smooth ? CONFIG.TIME.SMOOTH_SCROLL_DELAY : CONFIG.TIME.SCROLL_DELAY);
     };
 
     const initTimeline = () => {
-        // Initialize scrolling state
-        DOM.timeline.dataset.scrolling = 'false';
+        if (!DOM.timelineStops) return;
 
-        // Generate years at 5-year intervals from START_YEAR to END_YEAR
-        const yearsToShow = [];
-        for (let year = CONFIG.TIME.START_YEAR; year <= CONFIG.TIME.END_YEAR; year += 5) {
-            yearsToShow.push(year);
-        }
-        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
-        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
-        const totalMs = endDate.getTime() - startDate.getTime();
+        DOM.timelineStops.innerHTML = '';
+        timelineStopButtons = [];
+        DOM.timelineStops.onmouseleave = clearLocationFocus;
 
-        // Helper to calculate position from date
-        const getPosition = (date) => {
-            const dateMs = date.getTime() - startDate.getTime();
-            return (dateMs / totalMs) * 100;
-        };
+        const locationsDescending = locationData
+            .map((location, index) => ({ location, index }))
+            .reverse();
 
-        // Helper to set position (always vertical now)
-        const setPosition = (el, position) => {
-            el.style.top = `${position}%`;
-            el.dataset.position = position; // Store for wave effect
-        };
+        locationsDescending.forEach(({ location, index }) => {
+            const stopBtn = document.createElement('div');
+            stopBtn.className = 'timeline-stop';
+            stopBtn.setAttribute('role', 'listitem');
+            stopBtn.dataset.index = String(index);
+            const durationDays = DateUtils.getDurationDays(
+                location.startDate,
+                location.endDate || realNow,
+                realNow
+            );
 
-        // Create year labels
-        DOM.timelineYears.innerHTML = '';
-        yearsToShow.forEach(year => {
-            if (year > CONFIG.TIME.END_YEAR) return;
+            stopBtn.style.flex = `${Math.max(1, durationDays)} 1 0`;
+            stopBtn.setAttribute('aria-label', `${index + 1}. ${location.city}`);
+            stopBtn.title = `${index + 1}. ${location.city}`;
 
-            const yearEl = document.createElement('div');
-            yearEl.className = 'timeline-year';
-            yearEl.textContent = year;
-            yearEl.dataset.year = year;
+            const numberSpan = document.createElement('span');
+            numberSpan.className = 'timeline-stop-number';
+            numberSpan.textContent = String(index + 1);
 
-            const position = getPosition(new Date(year, 0, 1));
-            setPosition(yearEl, position);
+            const citySpan = document.createElement('span');
+            citySpan.className = 'timeline-stop-name';
+            citySpan.textContent = location.city;
 
-            yearEl.addEventListener('click', () => {
-                const targetDate = new Date(year, 0, 1);
-                const targetScroll = dateToScroll(targetDate);
-                withProgrammaticScroll(() => {
-                    DOM.scrollContainer.scrollTo({
-                        top: targetScroll,
-                        behavior: 'smooth'
-                    });
-                }, CONFIG.TIME.SMOOTH_SCROLL_DELAY);
-            });
+            stopBtn.appendChild(numberSpan);
+            stopBtn.appendChild(citySpan);
+            stopBtn.addEventListener('mouseenter', () => focusLocationFromTimeline(index));
+            stopBtn.addEventListener('touchstart', () => {
+                if (selectedLocationIndex === index) {
+                    clearLocationFocus();
+                } else {
+                    focusLocationFromTimeline(index);
+                }
+            }, { passive: true });
 
-            DOM.timelineYears.appendChild(yearEl);
+            timelineStopButtons.push({ button: stopBtn, locationIndex: index });
+            DOM.timelineStops.appendChild(stopBtn);
         });
 
-        // Create markers and labels for each location's start date
-        DOM.timelineMarkers.innerHTML = '';
-        DOM.timelineLabels.innerHTML = '';
-        locationData.forEach((location, index) => {
-            const position = getPosition(location.startDate);
-
-            // Create marker
-            const marker = document.createElement('div');
-            marker.className = 'timeline-marker';
-            marker.dataset.index = index;
-            marker.title = `${location.city} (${location.startDate.getFullYear()})`;
-            setPosition(marker, position);
-
-            marker.addEventListener('click', () => {
-                const targetScroll = dateToScroll(location.startDate);
-                withProgrammaticScroll(() => {
-                    DOM.scrollContainer.scrollTo({
-                        top: targetScroll,
-                        behavior: 'smooth'
-                    });
-                }, CONFIG.TIME.SMOOTH_SCROLL_DELAY);
-            });
-
-            DOM.timelineMarkers.appendChild(marker);
-
-            // Create label
-            const label = document.createElement('div');
-            label.className = 'timeline-label';
-            label.textContent = location.city;
-            label.dataset.index = index;
-            setPosition(label, position);
-            DOM.timelineLabels.appendChild(label);
-        });
-
-        // Cache timeline elements for performance
-        timelineElementsCache = {
-            years: Array.from(DOM.timelineYears.querySelectorAll('.timeline-year')),
-            labels: Array.from(DOM.timelineLabels.querySelectorAll('.timeline-label')),
-            markers: Array.from(DOM.timelineMarkers.querySelectorAll('.timeline-marker'))
-        };
-
-        // Initialize timeline fade effect
-        updateTimelineFade();
+        updateTimeline();
     };
 
     const updateTimeline = () => {
-        const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
-        const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
-        const totalMs = endDate.getTime() - startDate.getTime();
-        const currentMs = Math.max(startDate.getTime(), Math.min(endDate.getTime(), currentScrollDate.getTime()));
-        const progress = (currentMs - startDate.getTime()) / totalMs;
+        const activeIndex = getCurrentLocationIndex();
 
-        // Update progress bar and thumb position (always vertical now)
-        DOM.timelineProgress.style.height = `${progress * 100}%`;
-        DOM.timelineThumb.style.top = `${progress * 100}%`;
-
-        // Update year labels: past = brighter, future = darker
-        timelineElementsCache.years.forEach(yearEl => {
-            const year = parseInt(yearEl.dataset.year);
-            const yearDate = new Date(year, 0, 1);
-
-            if (yearDate <= currentScrollDate) {
-                // Past: brighter (full opacity)
-                yearEl.style.opacity = '1.0';
+        timelineStopButtons.forEach(({ button, locationIndex }) => {
+            const location = locationData[locationIndex];
+            const isActive = locationIndex === activeIndex;
+            const isSelected = locationIndex === selectedLocationIndex;
+            button.style.setProperty('--timeline-stop-color', getTimelineTextColor(location, currentScrollDate));
+            button.classList.toggle('is-active', isActive);
+            button.classList.toggle('is-selected', isSelected);
+            if (isActive) {
+                button.setAttribute('aria-current', 'true');
             } else {
-                // Future: darker (low opacity)
-                yearEl.style.opacity = '0.3';
+                button.removeAttribute('aria-current');
             }
         });
-
-        // Update place labels: past = brighter, future = darker
-        // Also check if we're at a location start date (within sticky threshold) to keep it dark
-        const thresholdMs = CONFIG.TIME.STICKY_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-        timelineElementsCache.labels.forEach((label, index) => {
-            const location = locationData[index];
-            
-            // Check if we're at this location's start date (within threshold)
-            const timeDiff = Math.abs(currentScrollDate.getTime() - location.startDate.getTime());
-            const isAtThisLocationStart = timeDiff <= thresholdMs;
-
-            if (location.startDate <= currentScrollDate || isAtThisLocationStart) {
-                // Past or at start date: brighter (full opacity)
-                label.style.opacity = '1.0';
-            } else {
-                // Future: darker (low opacity)
-                label.style.opacity = '0.3';
-            }
-        });
-
-        // Update marker highlights
-        // "visible" = location has started (black)
-        // "active" = currently at this location (black + scaled)
-        timelineElementsCache.markers.forEach((marker, index) => {
-            const location = locationData[index];
-            const locEndDate = location.endDate || realNow;
-            const isVisible = currentScrollDate >= location.startDate;
-            const isActive = isVisible && currentScrollDate <= locEndDate;
-
-            marker.classList.toggle('visible', isVisible && !isActive);
-            marker.classList.toggle('active', isActive);
-        });
-    };
-
-    /**
-     * Update timeline fade effect for all timeline elements
-     * Adjusts opacity based on distance from viewport center
-     * Called on scroll with RAF throttling
-     */
-    const updateTimelineFade = () => {
-        const viewportCenter = getViewportCenter();
-
-        // Performance: skip if viewport hasn't moved enough
-        if (Math.abs(viewportCenter - CONFIG.TIMELINE_FADE.LAST_VIEWPORT_CENTER) <
-            CONFIG.TIMELINE_FADE.UPDATE_THRESHOLD) {
-            return;
-        }
-
-        CONFIG.TIMELINE_FADE.LAST_VIEWPORT_CENTER = viewportCenter;
-        const timelineRect = DOM.timeline.getBoundingClientRect();
-        const timelineHeight = timelineRect.height;
-
-        // Update year labels (opacity fades based on distance)
-        timelineElementsCache.years.forEach(year => {
-            const position = parseFloat(year.dataset.position);
-            const elementTop = (position / 100) * timelineHeight;
-            const distance = Math.abs(elementTop - viewportCenter);
-            year.style.opacity = calculateTimelineOpacity(distance);
-        });
-
-        // City labels stay at constant opacity (no fade effect)
-
-        // Update thumb (scale based on distance if not dragging)
-        if (!DOM.timelineThumb.classList.contains('dragging')) {
-            const thumbPosition = parseFloat(DOM.timelineThumb.style.top);
-            const thumbTop = (thumbPosition / 100) * timelineHeight;
-            const distance = Math.abs(thumbTop - viewportCenter);
-            const opacity = calculateTimelineOpacity(distance);
-            const scale = 1.0 + (opacity - 0.4) * 0.67;
-
-            DOM.timelineThumb.style.transform =
-                `translate(-50%, -50%) scale(${scale})`;
-        }
-    };
-
-    /**
-     * Reveal timeline lines on first scroll
-     */
-    const revealTimelineLines = () => {
-        if (DOM.timeline.dataset.revealed === 'true') return;
-        DOM.timeline.dataset.revealed = 'true';
-
-        // Haptic feedback removed - Chrome blocks navigator.vibrate()
-        // in scroll events even for user-initiated scrolls
-    };
-
-    /**
-     * Show timeline labels (set active state)
-     */
-    const showTimelineLabels = () => {
-        DOM.timeline.dataset.scrolling = 'true';
-
-        // Clear any existing hide timer
-        if (hideLabelsTimeout) {
-            clearTimeout(hideLabelsTimeout);
-            hideLabelsTimeout = null;
-        }
-    };
-
-    /**
-     * Hide timeline labels after delay
-     */
-    const scheduleHideLabels = () => {
-        // Clear any existing timer
-        if (hideLabelsTimeout) {
-            clearTimeout(hideLabelsTimeout);
-        }
-
-        // Schedule hide after 1.5 seconds of no scrolling
-        hideLabelsTimeout = setTimeout(() => {
-            DOM.timeline.dataset.scrolling = 'false';
-            hideLabelsTimeout = null;
-        }, 1500);
-    };
-
-    /**
-     * Check if user has scrolled from initial position
-     */
-    const hasScrolled = () => {
-        const scrollTop = DOM.scrollContainer.scrollTop;
-        const maxScroll = DOM.scrollContainer.scrollHeight -
-                         DOM.scrollContainer.clientHeight;
-        return scrollTop > 5 && scrollTop < maxScroll - 5;
-    };
-
-    const initTimelineDrag = () => {
-        let isDragging = false;
-        let activePointerId = null;
-
-        const clamp01 = (v) => Math.max(0, Math.min(1, v));
-
-        // Timeline is vertical on both desktop and mobile (CSS + updateTimeline()).
-        // Use Y coordinate consistently to avoid mobile "jumping" behavior.
-        const getProgressFromClientPoint = (clientY) => {
-            const trackRect = DOM.timelineTrack.getBoundingClientRect();
-            const y = clientY - trackRect.top;
-            return clamp01(y / trackRect.height);
-        };
-
-        const updateFromProgress = (progress) => {
-            const startDate = new Date(CONFIG.TIME.START_YEAR, 0, 1);
-            const endDate = new Date(CONFIG.TIME.END_YEAR, 11, 31);
-            const totalMs = endDate.getTime() - startDate.getTime();
-            const targetDate = new Date(startDate.getTime() + progress * totalMs);
-            const targetScroll = dateToScroll(targetDate);
-            withProgrammaticScroll(() => {
-                DOM.scrollContainer.scrollTop = targetScroll;
-            });
-        };
-
-        const startDragging = (e) => {
-            // Only handle primary button for mouse; touch/pen are fine.
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            e.preventDefault();
-
-            isDragging = true;
-            activePointerId = e.pointerId;
-            DOM.timelineThumb.classList.add('dragging');
-            DOM.timelineThumb.setPointerCapture(activePointerId);
-            document.body.style.cursor = 'grabbing';
-            document.body.style.userSelect = 'none';
-
-            const progress = getProgressFromClientPoint(e.clientY);
-            updateFromProgress(progress);
-        };
-
-        const stopDragging = () => {
-            if (!isDragging) return;
-            isDragging = false;
-            activePointerId = null;
-            DOM.timelineThumb.classList.remove('dragging');
-            document.body.style.cursor = '';
-            document.body.style.userSelect = '';
-        };
-
-        // Pointer events (unifies mouse + touch + pen; fixes mobile jumpiness)
-        DOM.timelineThumb.addEventListener('pointerdown', startDragging, { passive: false });
-
-        DOM.timelineTrack.addEventListener('pointerdown', (e) => {
-            // Clicking/pressing the track should jump, unless starting on the thumb.
-            if (e.target === DOM.timelineThumb) return;
-            if (e.pointerType === 'mouse' && e.button !== 0) return;
-            e.preventDefault();
-            const progress = getProgressFromClientPoint(e.clientY);
-            updateFromProgress(progress);
-        }, { passive: false });
-
-        DOM.timelineThumb.addEventListener('pointermove', (e) => {
-            if (!isDragging) return;
-            if (activePointerId !== null && e.pointerId !== activePointerId) return;
-            e.preventDefault();
-            const progress = getProgressFromClientPoint(e.clientY);
-            updateFromProgress(progress);
-        }, { passive: false });
-
-        DOM.timelineThumb.addEventListener('pointerup', stopDragging);
-        DOM.timelineThumb.addEventListener('pointercancel', stopDragging);
-        DOM.timelineThumb.addEventListener('lostpointercapture', stopDragging);
     };
 
     const initPageWheel = () => {
-        // Listen for wheel events on the entire page
-        document.addEventListener('wheel', (e) => {
+        DOM.timeMachineWrapper.addEventListener('wheel', (e) => {
+            if (e.target.closest('#journey-controls')) return;
             e.preventDefault();
-            
-            // Apply sticky effect for location start dates
-            const currentScrollTop = DOM.scrollContainer.scrollTop;
-            const resistance = getStickyResistance(currentScrollTop);
-            const scrollDelta = e.deltaY * resistance;
-            
-            // Scroll the time machine container based on adjusted wheel delta
-            DOM.scrollContainer.scrollTop += scrollDelta;
+            DOM.scrollContainer.scrollTop += e.deltaY;
         }, { passive: false });
-    };
-
-    const initPageTouch = () => {
-        let touchStart = null;
-        let lastTouch = null;
-        let isHandlingScroll = false;
-
-        document.addEventListener('touchstart', (e) => {
-            // Don't interfere with timeline thumb dragging
-            if (e.target.closest('#timeline')) return;
-
-            const touch = e.touches[0];
-            touchStart = { x: touch.clientX, y: touch.clientY };
-            lastTouch = { ...touchStart };
-            isHandlingScroll = false;
-        }, { passive: true });
-
-        document.addEventListener('touchmove', (e) => {
-            if (touchStart === null) return;
-            // Don't interfere with timeline thumb dragging
-            if (e.target.closest('#timeline')) return;
-
-            const touch = e.touches[0];
-            const mobile = isMobile();
-            
-            // Calculate movement
-            const deltaX = Math.abs(touch.clientX - touchStart.x);
-            const deltaY = Math.abs(touch.clientY - touchStart.y);
-            
-            // On mobile: always handle horizontal movement as scroll
-            // On desktop: handle vertical movement as scroll
-            const shouldHandle = mobile 
-                ? deltaX > 2  // Any horizontal movement on mobile
-                : deltaY > 2;  // Any vertical movement on desktop
-
-            // If we should handle this or are already handling, take over
-            if (shouldHandle || isHandlingScroll) {
-                e.preventDefault();
-                isHandlingScroll = true;
-
-                // On mobile: horizontal swipe (left = forward, right = backward)
-                // On desktop: vertical swipe (up = forward, down = backward)
-                const currentScrollTop = DOM.scrollContainer.scrollTop;
-                let scrollDelta;
-                if (mobile) {
-                    scrollDelta = lastTouch.x - touch.clientX;
-                } else {
-                    scrollDelta = lastTouch.y - touch.clientY;
-                }
-                
-                // Apply sticky effect for location start dates
-                const resistance = getStickyResistance(currentScrollTop);
-                DOM.scrollContainer.scrollTop += scrollDelta * resistance;
-
-                lastTouch = { x: touch.clientX, y: touch.clientY };
-            }
-        }, { passive: false });
-
-        document.addEventListener('touchend', () => {
-            touchStart = null;
-            lastTouch = null;
-        }, { passive: true });
     };
 
     const initKeyboardNavigation = () => {
-        let keyHoldCount = 0;
-        let lastKeyDirection = null;
-
-        const getScrollDelta = () => {
-            const totalYears = CONFIG.TIME.END_YEAR - CONFIG.TIME.START_YEAR;
-            const maxScroll = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
-            const baseScroll = (CONFIG.KEYBOARD.TIME_INCREMENT_YEARS / totalYears) * maxScroll;
-
-            // Apply acceleration: multiply by 1 + (count / 4)
-            // This grows quickly: 1x, 1.25x, 1.5x, 1.75x, 2x... up to 6x
-            const multiplier = Math.min(6, 1 + (keyHoldCount / 4));
-            return baseScroll * multiplier;
-        };
-
-        const handleKeyPress = (direction) => {
-            // Reset counter if direction changed
-            if (lastKeyDirection !== direction) {
-                keyHoldCount = 0;
-                lastKeyDirection = direction;
-            }
-
-            // Increment hold count for acceleration
-            keyHoldCount++;
-
-            const currentScroll = DOM.scrollContainer.scrollTop;
-            const maxScroll = DOM.scrollContainer.scrollHeight - DOM.scrollContainer.clientHeight;
-            const scrollDelta = getScrollDelta();
-
-            let targetScroll;
-            if (direction === 'up') {
-                targetScroll = Math.max(0, currentScroll - scrollDelta);
-            } else {
-                targetScroll = Math.min(maxScroll, currentScroll + scrollDelta);
-            }
-
-            // Skip if at boundary
-            if (targetScroll === currentScroll) return;
-
-            // Direct scroll without smooth behavior for responsive key repeat
-            withProgrammaticScroll(() => {
-                DOM.scrollContainer.scrollTop = targetScroll;
-            }, 0);
-        };
-
         document.addEventListener('keydown', (e) => {
             // Skip if typing in input field
             if (e.target.matches('input, textarea, select')) return;
@@ -1329,20 +874,12 @@ function createMapApp(locationData) {
             // Skip if modifier keys pressed (preserve browser shortcuts)
             if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
 
-            if (e.key === 'ArrowDown') {
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
                 e.preventDefault();
-                handleKeyPress('down');
-            } else if (e.key === 'ArrowUp') {
+                jumpToLocation(getCurrentLocationIndex() + 1, true);
+            } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
                 e.preventDefault();
-                handleKeyPress('up');
-            }
-        });
-
-        // Reset acceleration when key is released
-        document.addEventListener('keyup', (e) => {
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                keyHoldCount = 0;
-                lastKeyDirection = null;
+                jumpToLocation(getCurrentLocationIndex() - 1, true);
             }
         });
     };
@@ -1355,22 +892,12 @@ function createMapApp(locationData) {
         animationFrameId = requestAnimationFrame(() => {
             currentScrollDate = scrollToDate(DOM.scrollContainer.scrollTop);
 
-            // Reveal lines on first scroll
-            if (hasScrolled()) {
-                revealTimelineLines();
-                showTimelineLabels(); // Show labels while scrolling
-                scheduleHideLabels(); // Schedule hide after scroll stops
-            }
-
             // Simple pipeline: filter → compute → render
             const visible = getVisibleLocations(currentScrollDate);
             const computed = computeLocationData(visible, currentScrollDate);
 
             render(computed);
-
-            updateDateDisplay();
             updateTimeline();
-            updateTimelineFade();
         });
     };
 
@@ -1388,11 +915,8 @@ function createMapApp(locationData) {
         // Initialize Time Machine
         updateScrollHeight();
         initTimeline();
-        initTimelineDrag();
         initPageWheel();
-        initPageTouch();
         initKeyboardNavigation();
-        updateDateDisplay();
         scrollToPresent();
 
         // Set up scroll handler
@@ -1414,7 +938,6 @@ function createMapApp(locationData) {
                 resizeCanvas();
                 initTimeline(); // Reinit for mobile/desktop switch
                 updateTimeline();
-                updateTimelineFade();
             });
         }, CONFIG.DEBOUNCE_DELAY);
 

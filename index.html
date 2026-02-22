@@ -46,6 +46,11 @@
     <section id="journey">
         <p>And this is my journey around the world:</p>
 
+        <!-- Journey controls -->
+        <div id="journey-controls" aria-label="Journey controls">
+            <div id="timeline-stops" role="list" aria-label="Journey locations"></div>
+        </div>
+
         <div id="time-machine-wrapper">
             <!-- Scrollable container -->
             <div id="time-scroll-container" class="hide-scrollbar" tabindex="-1">
@@ -58,20 +63,6 @@
                     <canvas id="map"></canvas>
                     <div id="map-overlays"></div>
                     <div id="tooltip"></div>
-                </div>
-
-                <!-- Current date display -->
-                <div id="current-date-display"></div>
-
-                <!-- Timeline -->
-                <div id="timeline" data-revealed="false">
-                    <div id="timeline-track">
-                        <div id="timeline-progress"></div>
-                        <div id="timeline-thumb" role="slider" aria-label="Timeline scrubber" aria-valuemin="1985" aria-valuemax="2025" aria-valuenow="2025"></div>
-                    </div>
-                    <div id="timeline-markers" role="list" aria-label="Locations"></div>
-                    <div id="timeline-years"></div>
-                    <div id="timeline-labels" aria-label="Location names"></div>
                 </div>
             </div>
         </div>
