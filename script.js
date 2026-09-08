@@ -980,3 +980,47 @@ function createMapApp(locationData) {
     // ====================================================================
     return { init, resizeCanvas };
 }
+
+// ========================================================================
+// VIEW SWITCHER: journey <-> projects
+// ========================================================================
+(function initViewSwitcher() {
+    const views = {
+        journey: document.getElementById('journey'),
+        projects: document.getElementById('projects')
+    };
+    const flip = document.getElementById('flip-word');
+    const pre = document.getElementById('intro-pre');
+    const tail = document.getElementById('intro-tail');
+
+    function fitWidth(isJourney, instant) {
+        const face = flip.querySelector(isJourney ? '.flip-front' : '.flip-back');
+        if (instant) flip.style.transition = 'none';
+        flip.style.width = face.getBoundingClientRect().width + 'px';
+        if (instant) { void flip.offsetWidth; flip.style.transition = ''; }
+    }
+
+    function setView(name) {
+        Object.entries(views).forEach(([key, section]) => {
+            section.hidden = key !== name;
+        });
+        const isJourney = name === 'journey';
+        flip.classList.toggle('flipped', !isJourney);
+        flip.setAttribute('aria-pressed', String(!isJourney));
+        pre.textContent = isJourney ? 'This is my ' : 'This is what I do at nights and weekends — my ';
+        tail.textContent = isJourney ? ' around the world:' : ':';
+        document.body.classList.toggle('night', !isJourney);
+        fitWidth(isJourney);
+    }
+
+    // fit once fonts are in, so the measured face width is final
+    if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(() => fitWidth(true, true));
+    } else {
+        fitWidth(true, true);
+    }
+
+    flip.addEventListener('click', () => {
+        setView(flip.classList.contains('flipped') ? 'journey' : 'projects');
+    });
+})();
